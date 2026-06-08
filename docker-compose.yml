@@ -1,0 +1,94 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: webai-postgres
+    environment:
+      POSTGRES_DB: webai_bridge
+      POSTGRES_USER: ${DB_USER:-webai_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_please}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-webai_user} -d webai_bridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - webai_network
+
+  # WebAI-to-API
+  webai:
+    build:
+      context: ./WebAI-to-API
+      dockerfile: Dockerfile
+    container_name: webai-api
+    environment:
+      WEBAI_INTERNAL_KEY: ${WEBAI_INTERNAL_KEY}
+    ports:
+      - "6969:6969"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - webai_network
+
+  # WebAI Bridge
+  bridge:
+    build:
+      context: ./webai-bridge
+      dockerfile: Dockerfile
+    container_name: webai-bridge
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-webai_user}:${DB_PASSWORD:-change_me_please}@db:5432/webai_bridge
+      WEBAI_URL: http://webai:6969
+      WEBAI_INTERNAL_KEY: ${WEBAI_INTERNAL_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+      COOKIE_ENCRYPTION_KEY: ${COOKIE_ENCRYPTION_KEY}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+      webai:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - webai_network
+
+  # Frontend (web2api-ui)
+  frontend:
+    build:
+      context: ./web2api-ui
+      dockerfile: Dockerfile
+    container_name: webai-frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - bridge
+    restart: unless-stopped
+    networks:
+      - webai_network
+
+volumes:
+  postgres_data:
+
+networks:
+  webai_network:
+    driver: bridge
