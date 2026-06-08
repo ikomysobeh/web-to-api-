@@ -29,16 +29,53 @@ def hash_password(plain_password: str) -> str:
     """
     Hash a password.
     Laravel equivalent: Hash::make($password)
+    
+    Note: bcrypt has a 72-byte limit, so we truncate if necessary.
     """
-    return pwd_context.hash(plain_password)
+    # Truncate to 72 bytes (bcrypt limit)
+    # Convert to bytes, truncate at 72 bytes, then decode
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        # Truncate at 72 bytes, handling UTF-8 properly
+        truncated_bytes = password_bytes[:72]
+        # Try to decode, if it fails (mid-character), remove bytes from end until it works
+        while len(truncated_bytes) > 0:
+            try:
+                truncated_password = truncated_bytes.decode('utf-8')
+                break
+            except UnicodeDecodeError:
+                truncated_bytes = truncated_bytes[:-1]
+        else:
+            truncated_password = ""
+    else:
+        truncated_password = plain_password
+    
+    return pwd_context.hash(truncated_password)
 
 
 def verify_password(plain_password: str, hashed: str) -> bool:
     """
     Check a password against its hash.
     Laravel equivalent: Hash::check($password, $hash)
+    
+    Note: bcrypt has a 72-byte limit, so we truncate if necessary.
     """
-    return pwd_context.verify(plain_password, hashed)
+    # Truncate to 72 bytes (bcrypt limit) - same logic as hash_password
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        truncated_bytes = password_bytes[:72]
+        while len(truncated_bytes) > 0:
+            try:
+                truncated_password = truncated_bytes.decode('utf-8')
+                break
+            except UnicodeDecodeError:
+                truncated_bytes = truncated_bytes[:-1]
+        else:
+            truncated_password = ""
+    else:
+        truncated_password = plain_password
+    
+    return pwd_context.verify(truncated_password, hashed)
 
 
 def create_token(user_id: int, email: str) -> str:
