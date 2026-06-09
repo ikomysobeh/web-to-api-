@@ -1,13 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { AIModelId, ChatMessage, ChatSession } from "@/types/chat";
 import {
   AI_MODELS,
   groupChatsByDate,
-  MOCK_CHATS,
   SUGGESTION_PROMPTS,
   type ChatGroup,
 } from "@/data/mockChats";
+
+import { useAuth } from "@/context/AuthContext";
+import { getCookiesStatus, chatStream } from "@/services/api";
+import { CookieSetupModal } from "@/components/modals/CookieSetupModal";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatHome } from "@/components/chat/ChatHome";
@@ -58,6 +61,12 @@ export interface ChatMessagesProps {
   onModelChange: (id: AIModelId) => void;
 }
 
+const MODEL_MAP: Record<AIModelId, string> = {
+  "lumina-flash": "gemini-3-flash",
+  "lumina-pro": "gemini-3-flash",
+  "lumina-reasoning": "gemini-3-flash",
+};
+
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -76,42 +85,29 @@ function msg(
   return { id: generateId(), role, content, createdAt: new Date(), status };
 }
 
-function mockAssistantReply(userContent: string): ChatMessage {
-  const lower = userContent.toLowerCase();
-
-  if (lower.includes("hello") || lower.includes("hi")) {
-    return msg("assistant", "Hello! How can I help you today?");
-  }
-
-  if (lower.includes("code") || lower.includes("function")) {
-    return msg(
-      "assistant",
-      "Sure! Here's a starting point. Let me know if you'd like me to adjust it.\n\n```ts\n// Your code here\n```",
-    );
-  }
-
-  if (lower.includes("explain") || lower.includes("what is")) {
-    return msg(
-      "assistant",
-      "Great question. Let me break that down for you step by step…",
-    );
-  }
-
-  return msg(
-    "assistant",
-    "That's an interesting question! I'm Lumina AI — I can help you write code, explain concepts, draft documents, and much more. What would you like to explore?",
-  );
-}
-
 export default function AppShell() {
-  const [sessions, setSessions] = useState<ChatSession[]>(MOCK_CHATS);
+  const { token } = useAuth();
+
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<AIModelId>("lumina-pro");
+  const [showCookieModal, setShowCookieModal] = useState(false);
 
   const activeChat = sessions.find((s) => s.id === activeChatId) ?? null;
   const sidebarGroups = groupChatsByDate(sessions);
+
+  useEffect(() => {
+    if (!token) return;
+    getCookiesStatus(token)
+      .then((data) => {
+        if (!data.connected) setShowCookieModal(true);
+      })
+      .catch(() => {
+        setShowCookieModal(true);
+      });
+  }, [token]);
 
   const handleSelectChat = useCallback((id: string) => {
     setActiveChatId(id);
@@ -134,9 +130,7 @@ export default function AppShell() {
   const handleModelChange = useCallback(
     (id: AIModelId) => {
       setSelectedModelId(id);
-
       if (!activeChatId) return;
-
       setSessions((prev) =>
         prev.map((s) => (s.id === activeChatId ? { ...s, modelId: id } : s)),
       );
@@ -147,12 +141,17 @@ export default function AppShell() {
   const handleSendMessage = useCallback(
     (content: string) => {
       const trimmed = content.trim();
-      if (!trimmed) return;
+      if (!trimmed || !token) return;
 
       const userMessage = msg("user", trimmed);
-      const pendingReply = msg("assistant", "", "sending");
+      const pendingReply = msg("assistant", "", "streaming");
+      const replyId = pendingReply.id;
+      const backendModel = MODEL_MAP[selectedModelId];
+
+      let targetSessionId: string;
 
       if (activeChatId) {
+        targetSessionId = activeChatId;
         setSessions((prev) =>
           prev.map((s) =>
             s.id === activeChatId
@@ -164,60 +163,112 @@ export default function AppShell() {
               : s,
           ),
         );
+      } else {
+        const newSession: ChatSession = {
+          id: generateId(),
+          title: buildTitle(trimmed),
+          modelId: selectedModelId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          messages: [userMessage, pendingReply],
+        };
+        targetSessionId = newSession.id;
+        setSessions((prev) => [newSession, ...prev]);
+        setActiveChatId(newSession.id);
+      }
 
-        const replyId = pendingReply.id;
-        const finalReply = mockAssistantReply(trimmed);
+      void (async () => {
+        let fullContent = "";
+        try {
+          const res = await chatStream(token, trimmed, backendModel);
+          const reader = res.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
 
-        window.setTimeout(() => {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
+
+              let chunk = "";
+              try {
+                const json = JSON.parse(data) as {
+                  choices?: { delta?: { content?: string } }[];
+                  content?: string;
+                };
+                chunk =
+                  json.choices?.[0]?.delta?.content ??
+                  json.content ??
+                  "";
+              } catch {
+                chunk = data;
+              }
+
+              if (chunk) {
+                fullContent += chunk;
+                setSessions((prev) =>
+                  prev.map((s) =>
+                    s.id === targetSessionId
+                      ? {
+                          ...s,
+                          messages: s.messages.map((m) =>
+                            m.id === replyId
+                              ? { ...m, content: fullContent }
+                              : m,
+                          ),
+                        }
+                      : s,
+                  ),
+                );
+              }
+            }
+          }
+
           setSessions((prev) =>
             prev.map((s) =>
-              s.id === activeChatId
+              s.id === targetSessionId
                 ? {
                     ...s,
                     messages: s.messages.map((m) =>
-                      m.id === replyId ? { ...finalReply, id: replyId } : m,
+                      m.id === replyId
+                        ? { ...m, content: fullContent, status: "done" as const }
+                        : m,
                     ),
                   }
                 : s,
             ),
           );
-        }, 800);
-
-        return;
-      }
-
-      const finalReply = mockAssistantReply(trimmed);
-      const pendingFinalReply = { ...finalReply, status: "sending" as const };
-      const newSession: ChatSession = {
-        id: generateId(),
-        title: buildTitle(trimmed),
-        modelId: selectedModelId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        messages: [userMessage, pendingFinalReply],
-      };
-
-      setSessions((prev) => [newSession, ...prev]);
-      setActiveChatId(newSession.id);
-
-      const replyId = pendingFinalReply.id;
-
-      window.setTimeout(() => {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === newSession.id
-              ? {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === replyId ? { ...finalReply, id: replyId } : m,
-                  ),
-                }
-              : s,
-          ),
-        );
-      }, 800);
+        } catch {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === targetSessionId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === replyId
+                        ? {
+                            ...m,
+                            content: fullContent || "Sorry, something went wrong. Please try again.",
+                            status: "error" as const,
+                          }
+                        : m,
+                    ),
+                  }
+                : s,
+            ),
+          );
+        }
+      })();
     },
-    [activeChatId, selectedModelId],
+    [activeChatId, selectedModelId, token],
   );
 
   return (
@@ -245,7 +296,7 @@ export default function AppShell() {
           onDeleteChat={handleDeleteChat}
         />
 
-        <div className="relative flex min-w-0 flex-1 flex-col ">
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <TopBar
             activeChat={activeChat}
             onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
@@ -271,6 +322,10 @@ export default function AppShell() {
             )}
           </main>
         </div>
+
+        {showCookieModal && (
+          <CookieSetupModal onSuccess={() => setShowCookieModal(false)} />
+        )}
       </div>
     </TooltipProvider>
   );

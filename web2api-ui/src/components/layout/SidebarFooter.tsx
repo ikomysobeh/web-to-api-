@@ -1,4 +1,5 @@
-import { Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 interface SidebarFooterProps {
@@ -13,6 +15,19 @@ interface SidebarFooterProps {
 }
 
 export function SidebarFooter({ collapsed }: SidebarFooterProps) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const email = user?.email ?? "";
+  const initials = email
+    ? email.slice(0, 2).toUpperCase()
+    : "AI";
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
+
   return (
     <div
       className={cn(
@@ -24,53 +39,84 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
       <div className="flex min-w-0 items-center gap-2.5">
         <Avatar size="sm" className="shrink-0 ring-1 ring-zinc-700">
           <AvatarFallback className="bg-violet-600 text-xs font-semibold text-white">
-            NS
+            {initials}
           </AvatarFallback>
         </Avatar>
 
-        {/* Name — hidden when collapsed */}
         {!collapsed && (
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-zinc-100">
-              Naya Smith
+              {email}
             </p>
             <p className="truncate text-xs text-zinc-500">Personal</p>
           </div>
         )}
       </div>
 
-      {/* Settings button — hidden when collapsed (shown in icon row) */}
       {!collapsed && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Settings"
-              className="shrink-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-            >
-              <Settings className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">Settings</TooltipContent>
-        </Tooltip>
+        <div className="flex shrink-0 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Settings"
+                className="text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                <Settings className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Settings</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Sign out"
+                onClick={handleLogout}
+                className="text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sign out</TooltipContent>
+          </Tooltip>
+        </div>
       )}
 
-      {/* Collapsed: settings icon below avatar */}
       {collapsed && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Settings"
-              className="absolute bottom-14 left-1/2 -translate-x-1/2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-            >
-              <Settings className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">Settings</TooltipContent>
-        </Tooltip>
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Settings"
+                className="absolute bottom-14 left-1/2 -translate-x-1/2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                <Settings className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Settings</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Sign out"
+                onClick={handleLogout}
+                className="absolute bottom-7 left-1/2 -translate-x-1/2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sign out</TooltipContent>
+          </Tooltip>
+        </>
       )}
     </div>
   );
