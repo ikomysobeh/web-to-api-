@@ -399,6 +399,41 @@ class SessionRegistry:
 _translate_session_manager = None
 _gemini_chat_registry = None
 
+# Per-user registries for multi-user mode
+_per_user_registries: Dict[str, "SessionRegistry"] = {}
+_per_user_registries_lock = asyncio.Lock()
+
+
+async def get_or_create_user_registry(user_id: str, client) -> "SessionRegistry":
+    """Get existing or create new SessionRegistry for one user."""
+    async with _per_user_registries_lock:
+        if user_id in _per_user_registries:
+            await _per_user_registries[user_id].update_client(client)
+            return _per_user_registries[user_id]
+
+        from app.services.providers.sqlite_repository import SQLiteConversationRepository
+        repository = SQLiteConversationRepository(
+            db_path=os.getenv("CONVERSATION_SNAPSHOT_DB", get_default_conversation_snapshot_db())
+        )
+        repository.initialize_sync()
+        registry = SessionRegistry(client, repository=repository)
+        _per_user_registries[user_id] = registry
+        logger.info(f"SessionManager: Created registry for user {user_id}")
+        return registry
+
+
+def get_user_registry(user_id: str) -> Optional["SessionRegistry"]:
+    """Return existing registry for a user, or None."""
+    return _per_user_registries.get(user_id)
+
+
+async def remove_user_registry(user_id: str) -> None:
+    """Clean up a user's registry on disconnect."""
+    async with _per_user_registries_lock:
+        _per_user_registries.pop(user_id, None)
+        logger.info(f"SessionManager: Registry removed for user {user_id}")
+
+
 async def init_session_managers():
     """
     Initialize session managers. 

@@ -200,11 +200,30 @@ async def create_user_client(
     """
     verify_internal_key(x_internal_key)
 
-    from app.services.gemini_client_manager import get_or_create_client
+    from app.services.gemini_client_manager import get_or_create_client, get_client
 
     try:
-        await get_or_create_client(data.user_id, data.psid, data.psidts)
-        return {"success": True, "user_id": data.user_id, "message": "Gemini client created"}
+        client = await get_or_create_client(data.user_id, data.psid, data.psidts)
+        
+        # Get the client status
+        status_name = "UNKNOWN"
+        if hasattr(client, "client") and hasattr(client.client, "account_status"):
+            status_name = client.client.account_status.name
+        
+        return {
+            "success": True,
+            "user_id": data.user_id,
+            "status": status_name,
+            "message": "Gemini client created successfully"
+        }
+    except RuntimeError as e:
+        # Client creation failed due to invalid status
+        return {
+            "success": False,
+            "user_id": data.user_id,
+            "status": "FAILED",
+            "message": str(e)
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create client for user {data.user_id}: {str(e)}")
 

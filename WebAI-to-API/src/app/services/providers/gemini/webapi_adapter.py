@@ -313,7 +313,12 @@ class GeminiWebAPIAdapter(GeminiBackendAdapter):
         gemini_client = self._get_available_gemini_client(user_id)
 
         # 1. Retrieve stateful SessionManager from SessionRegistry
-        registry = get_gemini_chat_registry()
+        if user_id:
+            from app.services.providers.gemini.session_manager import get_user_registry
+            registry = get_user_registry(user_id)
+        else:
+            registry = get_gemini_chat_registry()
+
         if not registry:
             raise HTTPException(status_code=503, detail="Session registry is not initialized.")
         
