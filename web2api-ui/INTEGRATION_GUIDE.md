@@ -1,0 +1,358 @@
+# WebAI Bridge Integration Guide (Product-Ready)
+
+This guide is the canonical integration reference for the `web2api-ui` frontend with:
+- `webai-bridge` (FastAPI auth/cookie/chat proxy)
+- `WebAI-to-API` (provider runtime)
+
+It is optimized for two use-cases:
+- fast local delivery (MVP)
+- safe production rollout (real product)
+
+## 1. Audience and Scope
+
+Use this guide if you are:
+- integrating the React frontend with auth + chat streaming
+- operating the full stack in staging or production
+- hardening the app beyond local development
+
+In scope:
+- frontend-backend contracts actually implemented today
+- authentication/session strategy decisions
+- SSE chat reliability patterns
+- extension integration boundary
+- operational readiness checklist
+
+Out of scope:
+- unimplemented backend features presented as finished
+- deep internals of `WebAI-to-API` (see linked docs)
+
+## 2. System Architecture
+
+High-level request flow:
+
+```text
+Browser (web2api-ui)
+  -> webai-bridge (JWT auth + encrypted user cookies)
+     -> WebAI-to-API (provider runtime)
+        -> Gemini
+```
+
+Auth flow (current implementation):
+
+```text
+register/login -> JWT returned in response body -> client stores token -> Authorization: Bearer <token>
+```
+
+Cookie flow (extension-only, canonical):
+
+```text
+Lumina extension popup
+  -> background.js reads chrome.cookies for gemini.google.com
+  -> popup sends LUMINA_COOKIES to content script in Lumina tab
+  -> content/receiver.ts dispatches CustomEvent "lumina:gemini-cookies"
+  -> GeminiConnectBanner.tsx receives cookies via src/lib/extension.ts
+  -> POST /api/cookies { psid, psidts }
+  -> encrypted-at-rest in Postgres
+  -> bridge forwards user-scoped chat requests
+```
+
+`POST /api/cookies/extract?browser=chrome` exists in the backend as a
+developer/manual utility for extracting cookies from a local browser.
+It is NOT part of the frontend UX flow and must not be called from
+any frontend code path.
+
+## 3. Backend Contracts (Source of Truth)
+
+All endpoints below are implemented in `webai-bridge/main.py`:
+
+### Auth
+- `POST /auth/register`
+  - request: `{ "email": string, "password": string }`
+  - response: `{ "success": boolean, "token": string, "email": string }`
+- `POST /auth/login`
+  - request: `{ "email": string, "password": string }`
+  - response: `{ "success": boolean, "token": string, "email": string }`
+- `GET /auth/me`
+  - header: `Authorization: Bearer <jwt>`
+  - response: `{ "user_id": number, "email": string }`
+
+### Gemini Cookie Management
+- `POST /api/cookies` ← **only endpoint used by frontend UX**
+  - request: `{ "psid": string, "psidts": string }`
+  - response: `{ "success": boolean, "message": string }`
+- `GET /api/cookies/status`
+  - response: `{ "connected": boolean, "message": string }`
+- `DELETE /api/cookies`
+  - response: `{ "success": boolean, "message": string }`
+- `POST /api/cookies/extract?browser=chrome` ← **backend/developer utility only**
+  - extracts cookies from a browser running on the same machine as the backend
+  - response: `{ "success": boolean, "message": string }`, may include `action_needed`
+  - **do not call this from any frontend UX flow**
+
+### Chat Streaming
+- `POST /api/chat`
+  - request: `{ "message": string, "model": string }`
+  - response: `text/event-stream`
+  - behavior: SSE pass-through from upstream runtime
+
+## 4. MVP vs Production Defaults
+
+Use this table to avoid shipping development shortcuts as production architecture.
+
+| Concern | MVP / Internal Tool | Production Default |
+|---|---|---|
+| Access token storage | `localStorage` acceptable with strict CSP and trusted users | HttpOnly + Secure cookie session recommended |
+| Token lifetime | 7-day JWT without refresh can work short-term | Access + refresh token model with rotation |
+| API client | `fetch` wrappers | typed client + centralized error model + retry policy |
+| Error handling | per-component checks (`success`, `detail`) | `ApiError` normalization in one layer |
+| App state | state in `AppShell` for speed | feature stores/hooks (`auth`, `chat`, `stream`) |
+| Query caching | manual | TanStack Query for status/profile/cache invalidation |
+| Extension wiring | direct `window.postMessage` in component | `src/lib/extension.ts` abstraction |
+| Observability | console and ad-hoc logs | structured logs, correlation IDs, alerts |
+
+## 5. Frontend Integration Blueprint
+
+Use this structure as the scaling baseline:
+
+```text
+src/
+  app/
+    AppShell.tsx
+  features/
+    auth/
+      api/
+      store/
+      components/
+    chat/
+      api/
+      store/
+      hooks/
+      components/
+  shared/
+    api/client.ts
+    api/errors.ts
+    lib/extension.ts
+    types/
+```
+
+Practical rules:
+- keep `AppShell` composition-only (layout + orchestration)
+- move streaming logic to `useChatStreaming` hook
+- move session/message mutations to `useChatStore`
+- keep all network contracts in one API layer
+
+## 6. Security Requirements
+
+### Current backend realities
+- JWT is generated by backend and currently has fixed expiry
+- no refresh endpoint exists yet
+- per-user Gemini cookies are encrypted at rest
+- CORS currently includes localhost dev origin and may require updates for your host
+
+### Production requirements
+- terminate TLS at edge and enforce HTTPS-only traffic
+- rotate `SECRET_KEY`, `COOKIE_ENCRYPTION_KEY`, and `WEBAI_INTERNAL_KEY`
+- never log raw Gemini cookie values or bearer tokens
+- add strict CSP in frontend
+- add rate limiting for `/auth/*` and `/api/chat`
+- if app is public, migrate from localStorage token model to HttpOnly cookie session
+
+## 7. API Client Standard
+
+Implement one shared client module with:
+- base URL from environment
+- auth header injection
+- timeout defaults
+- normalized error parsing
+- optional retry/backoff for idempotent reads
+
+Minimum error normalization contract:
+
+```ts
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  details?: unknown;
+}
+```
+
+Guideline:
+- components should consume typed success values or throw `ApiError`
+- components should not parse backend `detail/message/success` ad hoc
+
+## 8. Auth and Session Strategy
+
+Current state:
+- backend issues JWT from register/login
+- frontend sends bearer token to authenticated endpoints
+
+Immediate hardening steps:
+- define token expiration UX (`silent re-auth` vs `force login`)
+- add centralized 401 handling and redirect flow
+- include session bootstrap (`/auth/me`) on app startup
+
+Production roadmap:
+- add refresh token endpoint(s)
+- short-lived access token + rotating refresh token
+- server-side revocation strategy for compromised sessions
+
+## 9. Chat Streaming Reliability
+
+SSE client should handle:
+- network disconnects
+- malformed chunks
+- upstream timeouts
+- terminal sentinel (`[DONE]`) semantics
+
+Required UI behavior:
+- optimistic user message append
+- assistant message placeholder while streaming
+- idempotent finalize state when stream ends or fails
+- clear error banner with retry action
+
+Operational guidance:
+- track stream start/end/error metrics
+- monitor timeout and failure rate
+
+## 10. Extension Boundary (Implemented)
+
+All extension protocol details are encapsulated in `src/lib/extension.ts`.
+Components only call one function:
+
+```ts
+// src/lib/extension.ts — implemented
+export function waitForExtensionCookies(
+  timeoutMs?: number
+): Promise<GeminiCookieResult>;
+```
+
+Flow wired in `GeminiConnectBanner.tsx`:
+
+```ts
+const result = await waitForExtensionCookies(10_000);
+if (result.ok) {
+  await apiSaveCookies(result.psid, result.psidts);  // POST /api/cookies only
+}
+```
+
+Extension protocol (Lumina AI Chrome extension):
+- Message type popup → background: `GET_GEMINI_COOKIES`
+- Message type popup → content script: `LUMINA_COOKIES`
+- CustomEvent dispatched to page: `lumina:gemini-cookies`
+
+Components must not import from `src/lib/extension.ts` directly.
+They should consume state from `GeminiConnectBanner` or a future hook.
+
+## 11. Environment and Config
+
+Frontend `.env` (Vite):
+
+```ini
+VITE_API_URL=http://127.0.0.1:8000
+```
+
+Type your env values in `vite-env.d.ts`:
+
+```ts
+interface ImportMetaEnv {
+  readonly VITE_API_URL: string;
+}
+```
+
+Backend required env values include:
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `COOKIE_ENCRYPTION_KEY`
+- `WEBAI_URL`
+- `WEBAI_INTERNAL_KEY`
+
+## 12. Local Development Checklist
+
+- Postgres running and reachable by `webai-bridge`
+- backend env configured
+- backend starts and health endpoint returns success
+- WebAI runtime reachable from bridge
+- frontend env points to backend URL
+- user can register/login and call `/auth/me`
+- cookies connected via Lumina AI browser extension (click Capture & Send in popup)
+- `/api/chat` streams and UI completes response lifecycle
+
+## 13. Staging Readiness Checklist
+
+- non-default secrets in all services
+- CORS allowlist matches staging frontend domain
+- structured logs enabled
+- service health probes wired to orchestrator
+- alert thresholds defined for auth/chat error spikes
+- load test run for representative concurrent chat traffic
+- rollback path validated on previous release artifact
+
+## 14. Production Readiness Checklist
+
+- TLS enforced end-to-end
+- secret rotation playbook documented and tested
+- token strategy approved by security (no accidental MVP defaults)
+- incident runbook exists for auth outage, stream degradation, DB issues
+- dashboard/internal endpoints access-restricted
+- SLOs defined (availability, latency, error rate)
+- backup/restore drill performed for data stores
+
+## 15. Troubleshooting Matrix
+
+| Symptom | Likely Cause | Action |
+|---|---|---|
+| Browser CORS errors | Missing frontend origin in bridge CORS allowlist | Add deployed frontend origin and redeploy bridge |
+| 401 on authenticated calls | Missing/expired bearer token | Re-authenticate; validate startup `/auth/me` flow |
+| Cookie status false after connect | Extension did not return valid cookie pair | Verify extension install and Gemini login session |
+| Chat stream never starts | Missing internal key or upstream runtime unreachable | Validate `WEBAI_INTERNAL_KEY`, bridge-to-runtime network, upstream health |
+| Chat stream cuts early | timeout or network interruption | Improve client retry/failure UI and inspect bridge timeout behavior |
+
+## 16. Known Gaps and Product Roadmap
+
+Not implemented yet in current backend contract:
+- refresh token endpoints
+- persistent conversation CRUD endpoints
+- model catalog endpoint for dynamic model discovery
+- explicit logout endpoint with server-side revocation
+
+Recommended order:
+1. add refresh token lifecycle
+2. add normalized API error contract in frontend client
+3. extract chat/auth logic from `AppShell` into feature store/hooks
+4. add conversation persistence endpoints and migrate from local-only sessions
+
+## 17. Validation Matrix (Minimum)
+
+Auth tests:
+- register/login success and failure paths
+- protected endpoint rejects missing/invalid bearer token
+
+Cookie tests:
+- save/status/delete cycle per user
+- user isolation across multiple accounts
+
+Streaming tests:
+- successful token stream and completion
+- mid-stream upstream failure handling
+- malformed SSE chunk resilience
+
+Operational tests:
+- bridge startup with invalid env fails fast
+- upstream outage surfaces actionable frontend error
+- alerts trigger when error rate exceeds threshold
+
+## 18. Related References
+
+Use these docs for deeper context (do not duplicate them here):
+- `../FRONTEND_BACKEND_INTEGRATION_SUGGESTIONS.md`
+- `../MULTI_USER_IMPLEMENTATION_SUMMARY.md`
+- `../WebAI-to-API/docs/architecture.md`
+- `../WebAI-to-API/docs/api.md`
+- `../WebAI-to-API/docs/configuration.md`
+- `../WebAI-to-API/docs/docker.md`
+
+---
+
+Last updated: 2026-06-08
+Assumption baseline: current `webai-bridge` implementation in this workspace (auth + cookies + `/api/chat` SSE).
+Cookie UX path: Lumina AI browser extension only. `/api/cookies/extract` is excluded from frontend UX.

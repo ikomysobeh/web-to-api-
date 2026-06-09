@@ -57,7 +57,12 @@ def startup():
 # CORS — like config/cors.php in Laravel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # your React app
+    allow_origins=[
+        "http://127.0.0.1:3000",  # frontend via Docker (IP)
+        "http://localhost:3000",   # frontend via Docker (hostname)
+        "http://127.0.0.1:5173",  # Vite dev server (IP)
+        "http://localhost:5173",   # Vite dev server (hostname)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
