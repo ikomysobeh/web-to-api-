@@ -29,41 +29,58 @@ async def get_or_create_client(user_id: str, psid: str, psidts: str):
         logger.info(f"GeminiClientManager: Creating new Gemini client for user {user_id}")
         client = await _create_client(user_id, psid, psidts)
         _clients[user_id] = client
+
+        # Initialize per-user session registry immediately so chat requests don't race
+        from app.services.providers.gemini.session_manager import get_or_create_user_registry
+        await get_or_create_user_registry(user_id, client)
+
         return client
+
+
+_MAX_INIT_RETRIES = 3
+_RETRY_DELAY_SECONDS = 2.0
 
 
 async def _create_client(user_id: str, psid: str, psidts: str):
     """
     Initialize a new Gemini client from scratch for one user.
-    Copied and adapted from the original init_gemini_client() logic.
+    Retries with a fresh client instance on UNAUTHENTICATED — the gemini_webapi
+    library can report UNAUTHENTICATED on a first init attempt even with valid
+    cookies (internal token refresh), but a clean second instance succeeds.
     """
     from app.services.providers.gemini.webapi_client import MyGeminiClient
 
     gemini_proxy = CONFIG["Proxy"].get("http_proxy") or None
+    last_status = "UNKNOWN"
 
-    # Unique temp path so users don't share cache files
-    unique_id = f"{user_id}_{os.getpid()}_{int(time.time())}"
-    os.environ["GEMINI_COOKIE_PATH"] = os.path.join(
-        tempfile.gettempdir(), f"webai_user_{unique_id}"
-    )
+    for attempt in range(1, _MAX_INIT_RETRIES + 1):
+        # New unique_id per attempt = new temp path = clean library state
+        unique_id = f"{user_id}_{os.getpid()}_{int(time.time())}_{attempt}"
+        os.environ["GEMINI_COOKIE_PATH"] = os.path.join(
+            tempfile.gettempdir(), f"webai_user_{unique_id}"
+        )
 
-    client = MyGeminiClient(
-        secure_1psid=psid,
-        secure_1psidts=psidts,
-        proxy=gemini_proxy,
-        cookies={"__Secure-1PSID": psid, "__Secure-1PSIDTS": psidts}
-    )
-    await client.init(verbose=False, auto_refresh=False)
+        client = MyGeminiClient(
+            secure_1psid=psid,
+            secure_1psidts=psidts,
+            proxy=gemini_proxy,
+            cookies={"__Secure-1PSID": psid, "__Secure-1PSIDTS": psidts}
+        )
+        await client.init(verbose=False, auto_refresh=False)
 
-    status_name = "UNKNOWN"
-    if hasattr(client, "client") and hasattr(client.client, "account_status"):
-        status_name = client.client.account_status.name
+        last_status = "UNKNOWN"
+        if hasattr(client, "client") and hasattr(client.client, "account_status"):
+            last_status = client.client.account_status.name
 
-    if status_name not in ("AVAILABLE", "UNAUTHENTICATED"):
-        raise RuntimeError(f"Gemini client for user {user_id} has invalid status: {status_name}")
+        if last_status == "AVAILABLE":
+            logger.info(f"GeminiClientManager: Client for user {user_id} status: {last_status} (attempt {attempt})")
+            return client
 
-    logger.info(f"GeminiClientManager: Client for user {user_id} status: {status_name}")
-    return client
+        logger.warning(f"GeminiClientManager: Attempt {attempt}/{_MAX_INIT_RETRIES} for user {user_id} — status: {last_status}")
+        if attempt < _MAX_INIT_RETRIES:
+            await asyncio.sleep(_RETRY_DELAY_SECONDS)
+
+    raise RuntimeError(f"Gemini client for user {user_id} has invalid status: {last_status} after {_MAX_INIT_RETRIES} attempts")
 
 
 def get_client(user_id: str):
@@ -88,6 +105,10 @@ async def remove_client(user_id: str):
                     await client.close()
             except Exception as e:
                 logger.warning(f"GeminiClientManager: Error closing client for user {user_id}: {e}")
+
+            from app.services.providers.gemini.session_manager import remove_user_registry
+            await remove_user_registry(user_id)
+
             logger.info(f"GeminiClientManager: Client removed for user {user_id}")
 
 
