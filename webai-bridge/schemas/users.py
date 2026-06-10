@@ -11,6 +11,7 @@ class UserProfileResponse(BaseModel):
     user: dict
     user_id: int
     email: str
+    role: str
     created_at: datetime
     last_login: Optional[datetime] = None
     preferences: dict

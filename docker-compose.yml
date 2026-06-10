@@ -1,7 +1,7 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (pgvector image — includes the vector extension)
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: webai-postgres
     environment:
       POSTGRES_DB: webai_bridge
@@ -16,6 +16,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - webai_network
+
+  # NATS Message Broker
+  nats:
+    image: nats:2.10-alpine
+    container_name: webai-nats
+    ports:
+      - "4222:4222"    # client connections
+      - "8222:8222"    # HTTP monitoring
+    command: ["--jetstream", "--http_port", "8222"]
     restart: unless-stopped
     networks:
       - webai_network
@@ -54,6 +66,10 @@ services:
       WEBAI_INTERNAL_KEY: ${WEBAI_INTERNAL_KEY}
       SECRET_KEY: ${SECRET_KEY}
       COOKIE_ENCRYPTION_KEY: ${COOKIE_ENCRYPTION_KEY}
+      NATS_URL: nats://nats:4222
+      NATS_TOKEN: ${NATS_TOKEN:-}
+      LARAVEL_AUTH_URL: ${LARAVEL_AUTH_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "8000:8000"
     healthcheck:
@@ -66,6 +82,8 @@ services:
         condition: service_healthy
       webai:
         condition: service_healthy
+      nats:
+        condition: service_started
     restart: unless-stopped
     networks:
       - webai_network
@@ -75,9 +93,8 @@ services:
     build:
       context: ./web2api-ui
       dockerfile: Dockerfile
-    container_name: webai-frontend
-    environment:
-      VITE_API_URL: http://localhost:8000
+      args:
+        VITE_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
     depends_on:

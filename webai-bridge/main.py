@@ -1,24 +1,31 @@
 # main.py
 
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from typing import Optional
 from uuid import UUID
+import asyncio
 import configparser
 import httpx
 import json
 import os
+import uuid
 import logging
 from dotenv import load_dotenv
 
-from database import init_db
-from auth import hash_password, verify_password, create_token, get_current_user
+from database import init_db, get_connection
+from auth import hash_password, verify_password, create_token, get_current_user, require_admin, validate_with_laravel
+from nats_sync import start_nats_sync, get_nats_status
+from vector import ingest_document, search_chunks, extract_text
 from services.cookie_service import save_cookies, load_cookies, has_cookies, delete_cookies
 from schemas.conversations import ConversationCreate, ConversationUpdate
 from schemas.messages import MessageCreate
 from schemas.users import UserPreferencesUpdate
 from schemas.models import ModelInfo
+from schemas.agents import AgentCreate, AgentUpdate, AgentResponse, AgentPublicResponse
+from schemas.documents import DocumentUploadResponse
 from services.conversation_service import (
     create_conversation, get_conversations, get_conversation,
     update_conversation, delete_conversation, delete_all_conversations
@@ -63,8 +70,11 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 @app.on_event("startup")
-def startup():
+async def startup():
     init_db()   # like php artisan migrate — creates tables if missing
+    # Start NATS subscriber in background
+    asyncio.create_task(start_nats_sync())
+    logger.info("NATS sync task started")
 
 # CORS — like config/cors.php in Laravel
 app.add_middleware(
@@ -96,6 +106,7 @@ class CookieInput(BaseModel):
 class ChatMessage(BaseModel):
     message: str
     model: str = "gemini-3-flash"  # default value
+    agent_id: Optional[str] = None  # if set, inject instructions + vector context
 
 class RegisterInput(BaseModel):
     email: str
@@ -233,6 +244,17 @@ def health_check():
     return {"status": "ok", "service": "webai-bridge"}
 
 
+# GET /health/nats — NATS connection status
+@app.get("/health/nats")
+def health_nats():
+    connected = get_nats_status()
+    return {
+        "nats_connected": connected,
+        "status": "ok" if connected else "degraded",
+        "message": "NATS connected" if connected else "NATS disconnected — user sync paused"
+    }
+
+
 # POST /auth/register
 @app.post("/auth/register")
 def register(data: RegisterInput):
@@ -285,40 +307,66 @@ def register(data: RegisterInput):
     cursor.close()
     conn.close()
 
-    token = create_token(row["id"], data.email)
+    token = create_token(row["id"], data.email, "user")
     logger.info(f"Registration successful for email: {data.email}")
-    return {"success": True, "token": token, "email": data.email}
+    return {"success": True, "token": token, "email": data.email, "role": "user"}
 
 
 # POST /auth/login
 @app.post("/auth/login")
-def login(data: LoginInput):
+async def login(data: LoginInput):
     """
-    Login with email + password. Returns JWT token.
-    Laravel equivalent: AuthController@login
+    Login. Validates via Laravel auth API first.
+    Falls back to local bcrypt validation if LARAVEL_AUTH_URL is not set.
+    Returns JWT with role included.
     """
-    from database import get_connection
-
     logger.info(f"Login attempt for email: {data.email}")
 
+    # Try Laravel first
+    laravel_user = await validate_with_laravel(data.email, data.password)
+
+    if laravel_user:
+        # Find the user in our local DB (synced via NATS)
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, email, role FROM users WHERE external_id = %s",
+            (laravel_user["user_id"],)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found in local database — NATS sync may be delayed. Try again in a moment."
+            )
+
+        token = create_token(row["id"], row["email"], row["role"])
+        return {"success": True, "token": token, "email": row["email"], "role": row["role"]}
+
+    # Fallback: local bcrypt validation (for users created before NATS sync)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, email, password_hash FROM users WHERE email = %s",
+        "SELECT id, email, password_hash, role FROM users WHERE email = %s",
         (data.email.lower().strip(),)
     )
     row = cursor.fetchone()
     cursor.close()
     conn.close()
 
-    # Don't reveal which part is wrong (security best practice)
-    if not row or not verify_password(data.password, row["password_hash"]):
+    if not row or row["password_hash"] == "EXTERNAL_AUTH":
+        logger.warning(f"Login failed for email: {data.email}")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(data.password, row["password_hash"]):
         logger.warning(f"Login failed for email: {data.email}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_token(row["id"], row["email"])
+    token = create_token(row["id"], row["email"], row["role"])
     logger.info(f"Login successful for email: {data.email}")
-    return {"success": True, "token": token, "email": row["email"]}
+    return {"success": True, "token": token, "email": row["email"], "role": row["role"]}
 
 
 # GET /auth/me
@@ -329,7 +377,11 @@ def me(user = Depends(get_current_user)):
     React calls this on load to check if the token is still valid.
     Laravel equivalent: AuthController@me
     """
-    return {"user_id": user["user_id"], "email": user["email"]}
+    return {
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "role": user["role"]
+    }
 
 
 # POST /api/cookies  — save Gemini cookies (per-user)
@@ -476,13 +528,49 @@ async def chat(data: ChatMessage, user = Depends(get_current_user)):
     logger.info(f"Model: {data.model}")
     logger.info(f"Message length: {len(data.message)}")
     user_id = str(user["user_id"])
+    model = data.model
+    messages = [{"role": "user", "content": data.message}]
+
+    # ─── Agent injection ────────────────────────────────────────────
+    if data.agent_id:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Check user is assigned to this agent
+        cursor.execute("""
+            SELECT a.instructions, a.model
+            FROM agents a
+            JOIN user_agents ua ON ua.agent_id = a.id
+            WHERE a.id = %s AND ua.user_id = %s AND a.is_active = true
+        """, (data.agent_id, user["user_id"]))
+        agent_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not agent_row:
+            raise HTTPException(status_code=403, detail="Agent not assigned to you or does not exist")
+
+        # Use the agent's model
+        model = agent_row["model"]
+
+        # Vector search — get top 5 relevant chunks
+        relevant_chunks = await search_chunks(data.agent_id, data.message, limit=5)
+
+        # Build system prompt
+        system_parts = [agent_row["instructions"]]
+        if relevant_chunks:
+            system_parts.append("\n\n--- Relevant Knowledge ---")
+            for i, chunk in enumerate(relevant_chunks, 1):
+                system_parts.append(f"[{i}] {chunk}")
+
+        system_prompt = "\n".join(system_parts)
+        messages = [{"role": "system", "content": system_prompt}] + messages
+    # ────────────────────────────────────────────────────────────────
 
     request_body = {
-        "model": data.model,
+        "model": model,
         "stream": True,
-        "messages": [
-            {"role": "user", "content": data.message}
-        ]
+        "messages": messages
     }
     logger.info(f"Request URL: {WEBAI_URL}/v1/chat/completions")
     logger.info(f"Headers: Content-Type=application/json, X-Internal-Key=***, X-Internal-User-ID={user_id}")
@@ -576,7 +664,8 @@ def create_new_conversation(
     conversation = create_conversation(
         user["user_id"],
         data.title or "New Conversation",
-        data.model
+        data.model,
+        data.agent_id
     )
     return {
         "success": True,
@@ -1024,3 +1113,326 @@ async def check_session_registry(user = Depends(get_current_user)):
             "error": str(e),
             "session_exists": False
         }
+
+
+# ════════════════════════════════════════════════════════
+# ADMIN — AGENT CRUD
+# All require require_admin dependency
+# ════════════════════════════════════════════════════════
+
+@app.get("/admin/agents")
+def admin_list_agents(user = Depends(require_admin)):
+    """List all agents (active and inactive)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, name, description, instructions, model, is_active, created_by, created_at, updated_at
+        FROM agents ORDER BY created_at DESC
+    """)
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {"success": True, "agents": [dict(r) for r in rows]}
+
+
+@app.post("/admin/agents")
+def admin_create_agent(data: AgentCreate, user = Depends(require_admin)):
+    """Create a new agent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    agent_id = str(uuid.uuid4())
+    cursor.execute("""
+        INSERT INTO agents (id, name, description, instructions, model, created_by)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id, name, description, instructions, model, is_active, created_by, created_at, updated_at
+    """, (agent_id, data.name, data.description, data.instructions, data.model, user["user_id"]))
+    row = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return {"success": True, "agent": dict(row)}
+
+
+@app.get("/admin/agents/{agent_id}")
+def admin_get_agent(agent_id: str, user = Depends(require_admin)):
+    """Get a single agent with full details including instructions."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM agents WHERE id = %s", (agent_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"success": True, "agent": dict(row)}
+
+
+@app.put("/admin/agents/{agent_id}")
+def admin_update_agent(agent_id: str, data: AgentUpdate, user = Depends(require_admin)):
+    """Update any field of an agent."""
+    updates, params = [], []
+    if data.name is not None:         updates.append("name = %s");         params.append(data.name)
+    if data.description is not None:  updates.append("description = %s");  params.append(data.description)
+    if data.instructions is not None: updates.append("instructions = %s"); params.append(data.instructions)
+    if data.model is not None:        updates.append("model = %s");        params.append(data.model)
+    if data.is_active is not None:    updates.append("is_active = %s");    params.append(data.is_active)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    updates.append("updated_at = NOW()")
+    params.append(agent_id)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"UPDATE agents SET {', '.join(updates)} WHERE id = %s RETURNING *",
+        params
+    )
+    row = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"success": True, "agent": dict(row)}
+
+
+@app.delete("/admin/agents/{agent_id}")
+def admin_delete_agent(agent_id: str, user = Depends(require_admin)):
+    """Soft-delete: set is_active = false. Does NOT remove data or chunks."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE agents SET is_active = false, updated_at = NOW() WHERE id = %s",
+        (agent_id,)
+    )
+    found = cursor.rowcount > 0
+    conn.commit()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"success": True, "message": "Agent deactivated"}
+
+
+# ════════════════════════════════════════════════════════
+# ADMIN — DOCUMENT UPLOAD (vector ingestion)
+# ════════════════════════════════════════════════════════
+
+@app.post("/admin/agents/{agent_id}/documents")
+async def admin_upload_document(
+    agent_id: str,
+    file: UploadFile = File(...),
+    user = Depends(require_admin)
+):
+    """
+    Upload a document for an agent.
+    Extracts text → chunks → embeds → stores in document_chunks.
+    Supported: PDF, DOCX, TXT, MD
+    """
+    # Verify agent exists
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM agents WHERE id = %s", (agent_id,))
+    if not cursor.fetchone():
+        cursor.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="Agent not found")
+    cursor.close()
+    conn.close()
+
+    file_bytes = await file.read()
+    try:
+        text = extract_text(file.filename, file_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Document appears to be empty or unreadable")
+
+    result = await ingest_document(agent_id, file.filename, text)
+    return {
+        "success": True,
+        **result,
+        "message": f"Uploaded and indexed {result['stored']} chunks from '{file.filename}'"
+    }
+
+
+@app.get("/admin/agents/{agent_id}/documents")
+def admin_list_documents(agent_id: str, user = Depends(require_admin)):
+    """List all documents (grouped by filename) for an agent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT filename, COUNT(*) as chunk_count, MIN(created_at) as created_at
+        FROM document_chunks
+        WHERE agent_id = %s
+        GROUP BY filename
+        ORDER BY created_at DESC
+    """, (agent_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {"success": True, "agent_id": agent_id, "documents": [dict(r) for r in rows]}
+
+
+@app.delete("/admin/agents/{agent_id}/documents/{filename}")
+def admin_delete_document(agent_id: str, filename: str, user = Depends(require_admin)):
+    """Delete all chunks for a specific filename from an agent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM document_chunks WHERE agent_id = %s AND filename = %s",
+        (agent_id, filename)
+    )
+    deleted = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return {"success": True, "deleted_chunks": deleted, "message": f"Removed '{filename}'"}
+
+
+# ════════════════════════════════════════════════════════
+# ADMIN — USER-AGENT ASSIGNMENT
+# ════════════════════════════════════════════════════════
+
+@app.get("/admin/agents/{agent_id}/users")
+def admin_get_agent_users(agent_id: str, user = Depends(require_admin)):
+    """List all users assigned to an agent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.email, u.role, ua.assigned_at
+        FROM users u
+        JOIN user_agents ua ON ua.user_id = u.id
+        WHERE ua.agent_id = %s
+        ORDER BY ua.assigned_at DESC
+    """, (agent_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {"success": True, "users": [dict(r) for r in rows]}
+
+
+class AssignUsersInput(BaseModel):
+    user_ids: list   # list of integer user IDs
+
+@app.post("/admin/agents/{agent_id}/users")
+def admin_assign_users(agent_id: str, data: AssignUsersInput, user = Depends(require_admin)):
+    """Assign one or more users to an agent. Skips duplicates."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    assigned = 0
+    for uid in data.user_ids:
+        try:
+            cursor.execute("""
+                INSERT INTO user_agents (user_id, agent_id)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id, agent_id) DO NOTHING
+            """, (uid, agent_id))
+            assigned += cursor.rowcount
+        except Exception:
+            logger.exception(f"Failed to assign user {uid} to agent {agent_id}")
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return {"success": True, "assigned": assigned, "message": f"Assigned {assigned} user(s)"}
+
+
+@app.delete("/admin/agents/{agent_id}/users/{target_user_id}")
+def admin_remove_user_from_agent(agent_id: str, target_user_id: int, user = Depends(require_admin)):
+    """Remove a user's assignment from an agent."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM user_agents WHERE agent_id = %s AND user_id = %s",
+        (agent_id, target_user_id)
+    )
+    found = cursor.rowcount > 0
+    conn.commit()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    return {"success": True, "message": "User removed from agent"}
+
+
+# ════════════════════════════════════════════════════════
+# ADMIN — USER MANAGEMENT
+# ════════════════════════════════════════════════════════
+
+@app.get("/admin/users")
+def admin_list_users(user = Depends(require_admin)):
+    """List all users (synced from NATS/Laravel)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, email, role, external_id, synced_at, created_at
+        FROM users ORDER BY created_at DESC
+    """)
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {"success": True, "users": [dict(r) for r in rows]}
+
+
+class RoleUpdate(BaseModel):
+    role: str   # "admin" or "user"
+
+@app.put("/admin/users/{target_user_id}/role")
+def admin_update_user_role(target_user_id: int, data: RoleUpdate, user = Depends(require_admin)):
+    """Change a user's role. Allowed values: 'admin', 'user'."""
+    if data.role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="Role must be 'admin' or 'user'")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET role = %s WHERE id = %s",
+        (data.role, target_user_id)
+    )
+    found = cursor.rowcount > 0
+    conn.commit()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"success": True, "message": f"Role updated to '{data.role}'"}
+
+
+# ════════════════════════════════════════════════════════
+# USER — AGENT DISCOVERY
+# ════════════════════════════════════════════════════════
+
+@app.get("/api/agents")
+def user_list_my_agents(user = Depends(get_current_user)):
+    """List agents assigned to the logged-in user. Instructions are hidden."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name, a.description, a.model
+        FROM agents a
+        JOIN user_agents ua ON ua.agent_id = a.id
+        WHERE ua.user_id = %s AND a.is_active = true
+        ORDER BY a.name ASC
+    """, (user["user_id"],))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return {"success": True, "agents": [dict(r) for r in rows]}
+
+
+@app.get("/api/agents/{agent_id}")
+def user_get_agent(agent_id: str, user = Depends(get_current_user)):
+    """Get details of an agent assigned to this user. Instructions are hidden."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name, a.description, a.model
+        FROM agents a
+        JOIN user_agents ua ON ua.agent_id = a.id
+        WHERE a.id = %s AND ua.user_id = %s AND a.is_active = true
+    """, (agent_id, user["user_id"]))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Agent not found or not assigned to you")
+    return {"success": True, "agent": dict(row)}
