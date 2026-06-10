@@ -10,17 +10,19 @@ def _validate_uuid(value: str, label: str = "ID") -> str:
     except (ValueError, AttributeError):
         raise ValueError(f"Invalid {label}: '{value}' is not a valid UUID")
 
-def create_conversation(user_id: int, title: str, model: str) -> dict:
-    """Create a new conversation for a user."""
+def create_conversation(user_id: int, title: str, model: str, agent_id: str = None) -> dict:
+    """Create a new conversation for a user. Optionally linked to an agent."""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     conv_id = str(uuid.uuid4())
+    if agent_id:
+        agent_id = _validate_uuid(agent_id, "agent_id")
     cursor.execute(
-        """INSERT INTO conversations (id, user_id, title, model)
-           VALUES (%s, %s, %s, %s)
-           RETURNING id, user_id, title, model, created_at, updated_at""",
-        (conv_id, user_id, title, model)
+        """INSERT INTO conversations (id, user_id, title, model, agent_id)
+           VALUES (%s, %s, %s, %s, %s)
+           RETURNING id, user_id, title, model, agent_id, created_at, updated_at""",
+        (conv_id, user_id, title, model, agent_id)
     )
     row = cursor.fetchone()
     
@@ -40,6 +42,7 @@ def create_conversation(user_id: int, title: str, model: str) -> dict:
         "user_id": row["user_id"],
         "title": row["title"],
         "model": row["model"],
+        "agent_id": row["agent_id"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
         "message_count": count_row["count"]
@@ -59,7 +62,7 @@ def get_conversations(user_id: int, limit: int = 20, offset: int = 0) -> tuple:
     
     # Get conversations with message counts
     cursor.execute(
-        """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+        """SELECT c.id, c.user_id, c.title, c.model, c.agent_id, c.created_at, c.updated_at,
                   COUNT(cm.id) as message_count
            FROM conversations c
            LEFT JOIN conversation_messages cm ON c.id = cm.conversation_id
@@ -81,6 +84,7 @@ def get_conversations(user_id: int, limit: int = 20, offset: int = 0) -> tuple:
             "user_id": row["user_id"],
             "title": row["title"],
             "model": row["model"],
+            "agent_id": row["agent_id"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
             "message_count": row["message_count"]
@@ -95,7 +99,7 @@ def get_conversation(conversation_id: str, user_id: int) -> dict:
     cursor = conn.cursor()
     
     cursor.execute(
-        """SELECT id, user_id, title, model, created_at, updated_at
+        """SELECT id, user_id, title, model, agent_id, created_at, updated_at
            FROM conversations
            WHERE id = %s AND user_id = %s""",
         (conversation_id, user_id)
@@ -122,6 +126,7 @@ def get_conversation(conversation_id: str, user_id: int) -> dict:
         "user_id": row["user_id"],
         "title": row["title"],
         "model": row["model"],
+        "agent_id": row["agent_id"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
         "message_count": count_row["count"]

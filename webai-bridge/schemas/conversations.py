@@ -5,6 +5,7 @@ from typing import Optional, List
 class ConversationCreate(BaseModel):
     title: Optional[str] = "New Conversation"
     model: str = "gemini-3-flash"
+    agent_id: Optional[str] = None
 
 class ConversationUpdate(BaseModel):
     title: Optional[str] = None
@@ -15,6 +16,7 @@ class ConversationResponse(BaseModel):
     user_id: int
     title: str
     model: str
+    agent_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     message_count: int = 0

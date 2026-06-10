@@ -1,0 +1,1436 @@
+{
+  "info": {
+    "name": "WebAI Bridge API",
+    "description": "Complete API collection for WebAI Bridge — Auth, Gemini Connection, Chat, Agents, Conversations, Messages, Models, User Profile, Admin (Agents / Documents / Users).\n\nBase URL: http://127.0.0.1:8000\n\nAfter login or register, copy the token from the response and paste it into the collection variable {{token}}.\nAdmin endpoints require a token belonging to a user with role='admin'.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Paste your JWT token here after login"
+    },
+    {
+      "key": "conversation_id",
+      "value": "e2258d8f-d1c7-4b64-b1e0-79c8a6915b68",
+      "type": "string",
+      "description": "Replace with a real conversation UUID"
+    },
+    {
+      "key": "message_id",
+      "value": "",
+      "type": "string",
+      "description": "Replace with a real message UUID"
+    },
+    {
+      "key": "agent_id",
+      "value": "",
+      "type": "string",
+      "description": "Replace with a real agent UUID (auto-saved by Create Agent)"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string",
+      "description": "Replace with a real user ID (integer)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Ping the server. No auth required. Returns ok if the service is running."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"ok\",\n  \"service\": \"webai-bridge\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "NATS Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/nats",
+              "host": ["{{base_url}}"],
+              "path": ["health", "nats"]
+            },
+            "description": "Check whether the NATS JetStream subscriber is connected. No auth required. Use this to verify the user-sync pipeline is alive."
+          },
+          "response": [
+            {
+              "name": "200 Connected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"nats\": \"connected\"\n}"
+            },
+            {
+              "name": "200 Disconnected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"nats\": \"disconnected\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Token saved automatically');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Create a new local user account. Returns a JWT token on success. Token is auto-saved to the {{token}} variable. New local accounts always get role='user'."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"email\": \"user@example.com\",\n  \"role\": \"user\"\n}"
+            },
+            {
+              "name": "409 Email Already Registered",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Email already registered\"\n}"
+            },
+            {
+              "name": "422 Invalid Email",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Invalid email\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Token saved automatically, role: ' + json.role);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password. Tries Laravel auth first (if LARAVEL_AUTH_URL is set) then falls back to local bcrypt. Returns a JWT token valid for 7 days plus the user's role. Token is auto-saved to the {{token}} variable."
+          },
+          "response": [
+            {
+              "name": "200 Success (user)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"email\": \"user@example.com\",\n  \"role\": \"user\"\n}"
+            },
+            {
+              "name": "200 Success (admin)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"email\": \"admin@example.com\",\n  \"role\": \"admin\"\n}"
+            },
+            {
+              "name": "401 Wrong Credentials",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Invalid email or password\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Returns the current logged-in user info including role. Call this on app load to check if the token is still valid and to know whether to show admin UI."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"user_id\": 5,\n  \"email\": \"user@example.com\",\n  \"role\": \"user\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Invalid or expired token\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gemini Connection",
+      "item": [
+        {
+          "name": "Save Cookies (Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"psid\": \"your __Secure-1PSID cookie value here\",\n  \"psidts\": \"your __Secure-1PSIDTS cookie value here\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/cookies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cookies"]
+            },
+            "description": "Manually save the user's Gemini cookies. Get these values from browser DevTools → Application → Cookies → gemini.google.com."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Gemini connected successfully\"\n}"
+            },
+            {
+              "name": "400 Auth Failed",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Gemini authentication failed: Invalid cookies\"\n}"
+            },
+            {
+              "name": "422 Cookie Too Short",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"psid looks too short\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Auto-Extract Cookies from Browser",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cookies/extract?browser=chrome",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cookies", "extract"],
+              "query": [
+                {
+                  "key": "browser",
+                  "value": "chrome",
+                  "description": "Options: chrome, firefox, brave, edge, safari"
+                }
+              ]
+            },
+            "description": "Auto-extract Gemini cookies from the browser on the same machine as the server. Always returns 200 — check the 'success' field in the response body."
+          },
+          "response": [
+            {
+              "name": "200 Cookies Found",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Cookies found and applied automatically\"\n}"
+            },
+            {
+              "name": "200 Not Logged Into Gemini",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Not logged into gemini.google.com\",\n  \"action_needed\": \"login\"\n}"
+            },
+            {
+              "name": "200 Extraction Failed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Extraction failed: <reason>\",\n  \"action_needed\": \"manual\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Cookie Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cookies/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cookies", "status"]
+            },
+            "description": "Check if the current user has Gemini cookies saved. Use this to decide whether to show the Connect Gemini screen or the chat UI."
+          },
+          "response": [
+            {
+              "name": "200 Connected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"connected\": true,\n  \"message\": \"Gemini connected\"\n}"
+            },
+            {
+              "name": "200 Not Connected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"connected\": false,\n  \"message\": \"No Gemini session found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Disconnect Gemini (Delete Cookies)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cookies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cookies"]
+            },
+            "description": "Remove the user's Gemini cookies and drop their active session."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Gemini disconnected\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Simple Chat (Stateless Streaming)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Explain quantum computing in simple terms\",\n  \"model\": \"gemini-3-flash\",\n  \"agent_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chat"]
+            },
+            "description": "Send a single message and get a streaming SSE response. Does NOT save to the database. Pass agent_id (UUID string) to activate an agent's instructions and knowledge base. When an agent_id is given the user must be assigned to that agent, otherwise 403 is returned.\n\nResponse is Server-Sent Events (text/event-stream). Each chunk:\ndata: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\nEnds with:\ndata: [DONE]"
+          },
+          "response": [
+            {
+              "name": "200 Streaming Response",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "text/event-stream" }],
+              "body": "data: {\"id\":\"chatcmpl-xxx\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"delta\":{\"content\":\"Quantum\"},\"index\":0}]}\n\ndata: {\"id\":\"chatcmpl-xxx\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"delta\":{\"content\":\" computing...\"},\"index\":0}]}\n\ndata: [DONE]"
+            },
+            {
+              "name": "403 Not Assigned to Agent",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Not assigned to this agent\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Agents (User)",
+      "item": [
+        {
+          "name": "List My Agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agents",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agents"]
+            },
+            "description": "List all active agents the current user is assigned to. Use the returned IDs as agent_id in chat requests. Returns an empty list if the user has no assignments."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agents\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"name\": \"Support Bot\",\n      \"description\": \"Answers product questions using the knowledge base\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Agent (Public Info)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agents/{{agent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agents", "{{agent_id}}"]
+            },
+            "description": "Get the public information for a specific agent. The user must be assigned to this agent. Does NOT return the system instructions (admin-only field)."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agent\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Support Bot\",\n    \"description\": \"Answers product questions using the knowledge base\"\n  }\n}"
+            },
+            {
+              "name": "403 Not Assigned",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Not assigned to this agent\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Agent not found\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations"],
+              "query": [
+                { "key": "limit", "value": "20", "description": "Number per page" },
+                { "key": "offset", "value": "0", "description": "Number to skip" }
+              ]
+            },
+            "description": "List all conversations for the logged-in user. Ordered by most recently updated. Supports pagination via limit and offset."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"total\": 5,\n  \"conversations\": [\n    {\n      \"id\": \"e2258d8f-d1c7-4b64-b1e0-79c8a6915b68\",\n      \"user_id\": 5,\n      \"title\": \"How does React work?\",\n      \"model\": \"gemini-3-flash\",\n      \"agent_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"message_count\": 8,\n      \"created_at\": \"2025-01-15T10:30:00\",\n      \"updated_at\": \"2025-01-15T11:45:00\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.conversation && json.conversation.id) {",
+                  "    pm.collectionVariables.set('conversation_id', json.conversation.id);",
+                  "    console.log('Conversation ID saved: ' + json.conversation.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My new chat\",\n  \"model\": \"gemini-3-flash\",\n  \"agent_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/conversations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations"]
+            },
+            "description": "Create a new empty conversation. Optionally pass agent_id to associate it with an agent. The returned conversation.id is auto-saved to {{conversation_id}}."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"conversation\": {\n    \"id\": \"e2258d8f-d1c7-4b64-b1e0-79c8a6915b68\",\n    \"user_id\": 5,\n    \"title\": \"My new chat\",\n    \"model\": \"gemini-3-flash\",\n    \"agent_id\": null,\n    \"message_count\": 0,\n    \"created_at\": \"2025-01-15T10:30:00\",\n    \"updated_at\": \"2025-01-15T10:30:00\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Conversation + Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}"]
+            },
+            "description": "Get a single conversation and all its messages in one call. Use this when the user opens a past conversation."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"conversation\": { ... },\n  \"messages\": [ ... ]\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Conversation not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Conversation",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated conversation title\",\n  \"model\": \"gemini-3-pro\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}"]
+            },
+            "description": "Update the title or model of a conversation. Send only the fields you want to change."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"conversation\": { ... }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}"]
+            },
+            "description": "Delete a single conversation and all its messages."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Conversation deleted\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete All Conversations",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations"]
+            },
+            "description": "Delete ALL conversations for the logged-in user. Also deletes all messages inside them."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"deleted_count\": 12,\n  \"message\": \"Deleted 12 conversations\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message in Conversation (Streaming)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What are React hooks?\",\n  \"model\": \"gemini-3-flash\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}/messages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}", "messages"]
+            },
+            "description": "Send a message inside a conversation. Saves user message + AI response to the database automatically. Returns a streaming SSE response."
+          },
+          "response": [
+            {
+              "name": "200 Streaming Response",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "text/event-stream" }],
+              "body": "data: {\"choices\":[{\"delta\":{\"content\":\"React hooks\"}}]}\n\ndata: [DONE]"
+            }
+          ]
+        },
+        {
+          "name": "List Messages in Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}/messages?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}", "messages"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Get paginated messages for a conversation."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"total\": 24,\n  \"messages\": [ ... ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}/messages/{{message_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{conversation_id}}", "messages", "{{message_id}}"]
+            },
+            "description": "Delete a specific message."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Message deleted\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Models",
+      "item": [
+        {
+          "name": "List Available Models",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/models",
+              "host": ["{{base_url}}"],
+              "path": ["api", "models"]
+            },
+            "description": "Get the list of available Gemini models."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"models\": [\n    {\n      \"id\": \"gemini-3-flash\",\n      \"name\": \"Gemini 3 Flash\",\n      \"available\": true\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get Profile & Preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "profile"]
+            },
+            "description": "Get the full profile of the logged-in user including preferences and role."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"user\": {\n    \"user_id\": 5,\n    \"email\": \"user@example.com\",\n    \"role\": \"user\",\n    \"created_at\": \"2025-01-01T00:00:00\",\n    \"last_login\": null,\n    \"preferences\": {\n      \"default_model\": \"gemini-3-flash\",\n      \"theme\": \"dark\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_model\": \"gemini-3-pro\",\n  \"theme\": \"light\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "profile"]
+            },
+            "description": "Update user preferences."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Preferences updated\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "logout"]
+            },
+            "description": "Explicit logout. After calling this, clear the token from localStorage on the frontend."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Logged out successfully\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gemini Status",
+      "item": [
+        {
+          "name": "Get Gemini Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gemini/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gemini", "status"]
+            },
+            "description": "Get Gemini connection status with available models."
+          },
+          "response": [
+            {
+              "name": "200 Connected",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"connected\": true,\n  \"user_id\": 5,\n  \"message\": \"Gemini connected\",\n  \"available_models\": [\"gemini-3-flash\", \"gemini-3-pro\"]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Disconnect Gemini (Alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gemini/disconnect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "gemini", "disconnect"]
+            },
+            "description": "Disconnect Gemini. Same as DELETE /api/cookies."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Gemini disconnected\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin — Agents",
+      "description": "All endpoints in this folder require a token with role='admin'. Returns 403 for regular users.",
+      "item": [
+        {
+          "name": "List All Agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents"]
+            },
+            "description": "List all agents (active and inactive). Admin only."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agents\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"name\": \"Support Bot\",\n      \"description\": \"Answers product questions\",\n      \"model\": \"gemini-3-flash\",\n      \"instructions\": \"You are a helpful support agent...\",\n      \"is_active\": true,\n      \"created_at\": \"2025-01-01T00:00:00\",\n      \"updated_at\": \"2025-01-01T00:00:00\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "403 Not Admin",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Admin access required\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.agent && json.agent.id) {",
+                  "    pm.collectionVariables.set('agent_id', json.agent.id);",
+                  "    console.log('Agent ID saved: ' + json.agent.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Support Bot\",\n  \"description\": \"Answers product questions using the knowledge base\",\n  \"model\": \"gemini-3-flash\",\n  \"instructions\": \"You are a helpful customer support agent. Always be polite and concise. If you don't know the answer, say so honestly.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/agents",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents"]
+            },
+            "description": "Create a new AI agent with custom instructions. The agent_id is auto-saved to {{agent_id}}. model is optional (defaults to gemini-3-flash). instructions becomes the system prompt injected at chat time."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agent\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Support Bot\",\n    \"description\": \"Answers product questions using the knowledge base\",\n    \"model\": \"gemini-3-flash\",\n    \"instructions\": \"You are a helpful customer support agent...\",\n    \"is_active\": true,\n    \"created_at\": \"2025-01-15T10:00:00\",\n    \"updated_at\": \"2025-01-15T10:00:00\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Agent (Full)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}"]
+            },
+            "description": "Get full agent details including instructions. Admin only."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agent\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Support Bot\",\n    \"description\": \"Answers product questions\",\n    \"model\": \"gemini-3-flash\",\n    \"instructions\": \"You are a helpful support agent...\",\n    \"is_active\": true,\n    \"created_at\": \"2025-01-15T10:00:00\",\n    \"updated_at\": \"2025-01-15T10:00:00\"\n  }\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Agent not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Agent",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Support Bot v2\",\n  \"description\": \"Improved support agent\",\n  \"model\": \"gemini-3-pro\",\n  \"instructions\": \"You are an advanced support agent. Be concise and factual.\",\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}"]
+            },
+            "description": "Update any field of an agent. Send only the fields you want to change. Set is_active=false to deactivate without deleting."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"agent\": { ... }\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Agent not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Deactivate Agent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}"]
+            },
+            "description": "Soft-delete (deactivate) an agent. Sets is_active=false. The agent and its documents are preserved in the database but it will no longer be available to users."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Agent deactivated\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Agent not found\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin — Documents",
+      "description": "Knowledge base document management. Documents are chunked, embedded with Gemini text-embedding-004, and stored in pgvector. Top-5 chunks are injected as context at chat time.",
+      "item": [
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Supported formats: .pdf, .docx, .txt, .md"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/documents",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "documents"]
+            },
+            "description": "Upload a knowledge document for the specified agent. The file is split into ~1500-char chunks with 150-char overlap, embedded via Gemini text-embedding-004 (768 dims), and stored in pgvector. Supported: PDF, DOCX, TXT, MD. Use multipart/form-data with key 'file'."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Ingested product-manual.pdf: 24 chunks stored\",\n  \"filename\": \"product-manual.pdf\",\n  \"chunks\": 24\n}"
+            },
+            {
+              "name": "400 Unsupported Format",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Unsupported file type: .xlsx — use PDF, DOCX, TXT, or MD\"\n}"
+            },
+            {
+              "name": "404 Agent Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Agent not found\"\n}"
+            },
+            {
+              "name": "500 Embedding Failed",
+              "status": "Internal Server Error",
+              "code": 500,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Embedding failed — check GEMINI_API_KEY\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/documents",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "documents"]
+            },
+            "description": "List all documents uploaded for an agent, with filename and chunk count per file."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"documents\": [\n    {\n      \"filename\": \"product-manual.pdf\",\n      \"chunk_count\": 24\n    },\n    {\n      \"filename\": \"faq.md\",\n      \"chunk_count\": 7\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/documents/product-manual.pdf",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "documents", "product-manual.pdf"]
+            },
+            "description": "Delete all chunks for a specific document from the agent's knowledge base. Replace 'product-manual.pdf' in the URL with the actual filename. Use URL-encoding for filenames with spaces."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Deleted 24 chunks for product-manual.pdf\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Document not found\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin — User Assignments",
+      "description": "Manage which users have access to which agents. A user can only use an agent in chat if they are assigned to it.",
+      "item": [
+        {
+          "name": "Get Assigned Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "users"]
+            },
+            "description": "List all users currently assigned to this agent."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"users\": [\n    {\n      \"id\": 5,\n      \"email\": \"alice@example.com\"\n    },\n    {\n      \"id\": 8,\n      \"email\": \"bob@example.com\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Assign Users to Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_ids\": [5, 8, 12]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "users"]
+            },
+            "description": "Assign one or more users to an agent. user_ids is an array of integer user IDs. Already-assigned users are silently ignored (idempotent)."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Users assigned\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove User from Agent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/agents/{{agent_id}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "agents", "{{agent_id}}", "users", "{{user_id}}"]
+            },
+            "description": "Remove a single user from an agent. Replace {{user_id}} with the integer user ID."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"User removed from agent\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin — Users",
+      "description": "User management endpoints. Admin only.",
+      "item": [
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "List all users in the system with their role, external_id (Laravel user ID if synced via NATS), and synced_at timestamp."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"users\": [\n    {\n      \"id\": 1,\n      \"email\": \"admin@example.com\",\n      \"role\": \"admin\",\n      \"external_id\": null,\n      \"synced_at\": null\n    },\n    {\n      \"id\": 5,\n      \"email\": \"alice@example.com\",\n      \"role\": \"user\",\n      \"external_id\": 42,\n      \"synced_at\": \"2025-06-01T08:00:00\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/role",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{user_id}}", "role"]
+            },
+            "description": "Promote or demote a user. role must be 'admin' or 'user'. Replace {{user_id}} with the integer user ID. An admin cannot change their own role via this endpoint."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Role updated\"\n}"
+            },
+            {
+              "name": "400 Invalid Role",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"Invalid role. Must be 'admin' or 'user'\"\n}"
+            },
+            {
+              "name": "404 User Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"User not found\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Debug",
+      "item": [
+        {
+          "name": "Check Session Registry",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debug/session-registry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "debug", "session-registry"]
+            },
+            "description": "Debug only — checks if the user's Gemini session exists in the WebAI engine memory."
+          },
+          "response": [
+            {
+              "name": "200 Session Exists",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"user_id\": \"5\",\n  \"status\": 200,\n  \"session_exists\": true\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
