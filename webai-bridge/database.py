@@ -93,6 +93,147 @@ def init_db():
         )
     """)
 
+    # --- Enable pgvector extension ---
+    cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
+    # --- Add role and external sync columns to users ---
+    cursor.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='users' AND column_name='role'
+            ) THEN
+                ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user';
+            END IF;
+        END$$;
+    """)
+
+    cursor.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='users' AND column_name='external_id'
+            ) THEN
+                ALTER TABLE users ADD COLUMN external_id INTEGER UNIQUE;
+            END IF;
+        END$$;
+    """)
+
+    cursor.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='users' AND column_name='synced_at'
+            ) THEN
+                ALTER TABLE users ADD COLUMN synced_at TIMESTAMP;
+            END IF;
+        END$$;
+    """)
+
+    # --- agents table ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS agents (
+            id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name         TEXT NOT NULL,
+            description  TEXT,
+            instructions TEXT NOT NULL DEFAULT '',
+            model        TEXT DEFAULT 'gemini-2.5-flash',
+            created_by   INTEGER REFERENCES users(id),
+            is_active    BOOLEAN DEFAULT true,
+            created_at   TIMESTAMP DEFAULT NOW(),
+            updated_at   TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # --- document_chunks table (vector storage) ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS document_chunks (
+            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+            filename    TEXT,
+            chunk_index INTEGER NOT NULL,
+            content     TEXT NOT NULL,
+            embedding   vector(768),
+            metadata    JSONB DEFAULT '{}',
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Index for fast cosine similarity search
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
+        ON document_chunks USING ivfflat (embedding vector_cosine_ops)
+        WITH (lists = 100)
+    """)
+
+    # --- user_agents assignment table ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_agents (
+            id          SERIAL PRIMARY KEY,
+            user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+            assigned_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE (user_id, agent_id)
+        )
+    """)
+
+    # --- add agent_id to conversations ---
+    cursor.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='conversations' AND column_name='agent_id'
+            ) THEN
+                ALTER TABLE conversations
+                ADD COLUMN agent_id UUID REFERENCES agents(id) ON DELETE SET NULL;
+            END IF;
+        END$$;
+    """)
+
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def upsert_user(external_id: int, email: str, role: str = "user") -> dict:
+    """
+    Insert or update a user coming from a NATS event from Laravel.
+    external_id = the user's ID in the Laravel database.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO users (email, password_hash, role, external_id, synced_at)
+        VALUES (%s, %s, %s, %s, NOW())
+        ON CONFLICT (external_id) DO UPDATE
+        SET email      = EXCLUDED.email,
+            role       = EXCLUDED.role,
+            synced_at  = NOW()
+        RETURNING id, email, role, external_id
+    """, (email, "EXTERNAL_AUTH", role, external_id))
+    row = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return dict(row)
+
+
+def delete_user_by_external_id(external_id: int) -> bool:
+    """
+    Delete a user from local DB when Laravel sends user.deleted event.
+    Cascade deletes their conversations, messages, and assignments.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM users WHERE external_id = %s", (external_id,)
+    )
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return deleted
