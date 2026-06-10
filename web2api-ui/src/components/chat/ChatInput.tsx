@@ -7,14 +7,16 @@ import {
   Image,
   Info,
   Mic,
+  MicOff,
   MoreHorizontal,
   Paperclip,
   Plus,
   SquareStack,
   X,
 } from "lucide-react";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
-import type { AIModelId } from "@/types/chat";
+import type { AIModelId, ApiModel } from "@/types/chat";
 import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,22 +35,25 @@ export interface ChatInputProps {
   initialValue?: string;
   selectedModelId: AIModelId;
   onModelChange: (id: AIModelId) => void;
+  availableModels?: ApiModel[];
 }
 
 function ModelDropdown({
   selectedModelId,
   onModelChange,
   disabled,
+  models,
 }: {
   selectedModelId: AIModelId;
   onModelChange: (id: AIModelId) => void;
   disabled?: boolean;
+  models: ApiModel[];
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const selectedModel =
-    AI_MODELS.find((model) => model.id === selectedModelId) ?? AI_MODELS[0];
+    models.find((m) => m.id === selectedModelId) ?? models[0];
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -99,7 +104,7 @@ function ModelDropdown({
           className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/40"
         >
           <div className="space-y-1">
-            {AI_MODELS.map((model) => {
+            {models.map((model) => {
               const active = model.id === selectedModelId;
 
               return (
@@ -108,8 +113,14 @@ function ModelDropdown({
                   type="button"
                   role="menuitemradio"
                   aria-checked={active}
-                  onClick={() => selectModel(model.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none"
+                  disabled={!model.available}
+                  onClick={() => model.available && selectModel(model.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors",
+                    model.available
+                      ? "hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none"
+                      : "cursor-not-allowed opacity-40",
+                  )}
                 >
                   <span className="flex size-4 shrink-0 items-center justify-center">
                     {active && <Check className="size-4 text-zinc-100" />}
@@ -120,7 +131,7 @@ function ModelDropdown({
                       {model.name}
                     </span>
                     <span className="block truncate text-xs text-zinc-400">
-                      {model.description}
+                      {model.available ? model.description : "Connect Gemini to use"}
                     </span>
                   </span>
 
@@ -319,10 +330,19 @@ export function ChatInput({
   initialValue = "",
   selectedModelId,
   onModelChange,
+  availableModels,
 }: ChatInputProps) {
+  // Fall back to static AI_MODELS while API models are loading
+  const models: ApiModel[] = availableModels?.length
+    ? availableModels
+    : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
   const [value, setValue] = useState(initialValue);
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { listening, supported: micSupported, toggle: toggleMic } = useSpeechToText(
+    (text) => setValue((prev) => (prev ? prev + " " + text : text)),
+  );
 
   const canSend = !disabled && value.trim().length > 0;
 
@@ -370,6 +390,7 @@ export function ChatInput({
             selectedModelId={selectedModelId}
             onModelChange={onModelChange}
             disabled={disabled}
+            models={models}
           />
         </div>
 
@@ -400,7 +421,7 @@ export function ChatInput({
           />
 
           <div className="mb-0.5 flex shrink-0 items-center gap-0.5">
-            {!canSend && (
+            {!canSend && micSupported && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -408,13 +429,21 @@ export function ChatInput({
                     variant="ghost"
                     size="icon-sm"
                     disabled={disabled}
-                    aria-label="Use microphone"
-                    className="rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                    onClick={toggleMic}
+                    aria-label={listening ? "Stop recording" : "Use microphone"}
+                    className={cn(
+                      "rounded-full hover:bg-zinc-800",
+                      listening
+                        ? "animate-pulse text-red-400 hover:text-red-300"
+                        : "text-zinc-400 hover:text-zinc-100",
+                    )}
                   >
-                    <Mic className="size-4" />
+                    {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="top">Use microphone</TooltipContent>
+                <TooltipContent side="top">
+                  {listening ? "Stop recording" : "Use microphone"}
+                </TooltipContent>
               </Tooltip>
             )}
 

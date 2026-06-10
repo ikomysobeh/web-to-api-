@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 import type { ChatMessage } from "@/types/chat";
 import type { ChatMessagesProps } from "@/app/AppShell";
@@ -88,14 +89,21 @@ function MessageContent({ content }: { content: string }) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onDelete,
+}: {
+  message: ChatMessage;
+  onDelete: () => void;
+}) {
   const isUser = message.role === "user";
   const isSending = message.status === "sending";
+  const isDone = message.status === "done" || message.status === "error";
 
   return (
     <div
       className={cn(
-        "flex w-full gap-3",
+        "group flex w-full gap-3",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
@@ -141,12 +149,31 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           )}
         </div>
 
-        <time
-          dateTime={message.createdAt.toISOString()}
-          className="px-1 text-xs text-zinc-600"
+        <div
+          className={cn(
+            "flex items-center gap-2 px-1",
+            isUser ? "flex-row-reverse" : "flex-row",
+          )}
         >
-          {formatTime(message.createdAt)}
-        </time>
+          <time
+            dateTime={message.createdAt.toISOString()}
+            className="text-xs text-zinc-600"
+          >
+            {formatTime(message.createdAt)}
+          </time>
+
+          {/* Delete button — visible on hover, only for completed messages */}
+          {isDone && (
+            <button
+              type="button"
+              aria-label="Delete message"
+              onClick={onDelete}
+              className="opacity-0 group-hover:opacity-100 flex size-5 items-center justify-center rounded-md text-zinc-700 transition-all hover:bg-zinc-800 hover:text-red-400"
+            >
+              <Trash2 className="size-3" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -157,8 +184,14 @@ export function ChatMessages({
   onSendMessage,
   selectedModelId,
   onModelChange,
+  onDeleteMessage,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
+  availableModels,
 }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [confirmMsgId, setConfirmMsgId] = useState<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -170,6 +203,33 @@ export function ChatMessages({
     <div className="flex h-full min-h-0 flex-col bg-zinc-950">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pb-8 pt-6 sm:px-6">
+
+          {/* Load older messages */}
+          {hasMore && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-2 text-xs text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 hover:text-zinc-300 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : null}
+                {isLoadingMore ? "Loading…" : "Load older messages"}
+              </button>
+            </div>
+          )}
+
+          {/* Confirm delete message dialog */}
+          <ConfirmDialog
+            open={confirmMsgId !== null}
+            title="Delete message"
+            description="This message will be permanently deleted."
+            onConfirm={() => { onDeleteMessage(confirmMsgId!); setConfirmMsgId(null); }}
+            onCancel={() => setConfirmMsgId(null)}
+          />
+
           {isEmpty ? (
             <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 py-24 text-center">
               <div className="flex size-10 items-center justify-center rounded-2xl bg-violet-600/20">
@@ -181,7 +241,11 @@ export function ChatMessages({
             </div>
           ) : (
             session.messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onDelete={() => setConfirmMsgId(msg.id)}
+              />
             ))
           )}
 
@@ -195,6 +259,7 @@ export function ChatMessages({
             onSubmit={onSendMessage}
             selectedModelId={selectedModelId}
             onModelChange={onModelChange}
+            availableModels={availableModels}
           />
         </div>
       </div>

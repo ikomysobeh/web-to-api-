@@ -1,4 +1,4 @@
-import { Sparkles, PanelLeft, SquarePen, Zap } from "lucide-react";
+import { Sparkles, PanelLeft, SquarePen } from "lucide-react";
 
 import type { ChatSession } from "@/types/chat";
 import { Button } from "@/components/ui/button";
@@ -80,14 +80,6 @@ export function TopBar({
 
         {/* Right side */}
         <div className="flex shrink-0 items-center justify-end gap-2">
-          <Button
-            size="sm"
-            className="hidden items-center gap-2 rounded-full bg-zinc-800 px-4 text-xs font-medium text-white shadow-sm hover:bg-zinc-700 sm:inline-flex"
-          >
-            <Zap className="size-3.5" />
-            Try Pro
-          </Button>
-
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

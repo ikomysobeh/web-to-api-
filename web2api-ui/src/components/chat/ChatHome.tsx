@@ -7,6 +7,7 @@ import {
   Image,
   Info,
   Mic,
+  MicOff,
   MoreHorizontal,
   Paperclip,
   Plus,
@@ -14,10 +15,11 @@ import {
   SquareStack,
   X,
 } from "lucide-react";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 import type { ChatHomeProps } from "@/app/AppShell";
-import type { AIModelId } from "@/types/chat";
-import { AI_MODELS, SUGGESTION_PROMPTS } from "@/data/mockChats";
+import type { AIModelId, ApiModel } from "@/types/chat";
+import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,8 +31,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { SuggestionCards } from "./SuggestionCards";
-
 // ---------------------------------------------------------------------------
 // ModelChip — same compact cycler as in ChatInput
 // ---------------------------------------------------------------------------
@@ -39,16 +39,17 @@ function ModelDropdown({
   selectedModelId,
   onModelChange,
   disabled,
+  models,
 }: {
   selectedModelId: AIModelId;
   onModelChange: (id: AIModelId) => void;
   disabled?: boolean;
+  models: ApiModel[];
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const selectedModel =
-    AI_MODELS.find((model) => model.id === selectedModelId) ?? AI_MODELS[0];
+  const selectedModel = models.find((m) => m.id === selectedModelId) ?? models[0];
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -104,7 +105,7 @@ function ModelDropdown({
           )}
         >
           <div className="space-y-1">
-            {AI_MODELS.map((model) => {
+            {models.map((model) => {
               const active = model.id === selectedModelId;
 
               return (
@@ -113,10 +114,13 @@ function ModelDropdown({
                   type="button"
                   role="menuitemradio"
                   aria-checked={active}
-                  onClick={() => selectModel(model.id)}
+                  disabled={!model.available}
+                  onClick={() => model.available && selectModel(model.id)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors",
-                    "hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none",
+                    model.available
+                      ? "hover:bg-zinc-800 focus-visible:bg-zinc-800 focus-visible:outline-none"
+                      : "cursor-not-allowed opacity-40",
                   )}
                 >
                   <span className="flex size-4 shrink-0 items-center justify-center">
@@ -128,7 +132,7 @@ function ModelDropdown({
                       {model.name}
                     </span>
                     <span className="block truncate text-xs text-zinc-400">
-                      {model.description}
+                      {model.available ? model.description : "Connect Gemini to use"}
                     </span>
                   </span>
 
@@ -324,10 +328,18 @@ function UploadMenu({
 // ChatHome — Gemini-style empty / welcome state
 // ---------------------------------------------------------------------------
 
-export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, }: ChatHomeProps) {
+export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, availableModels }: ChatHomeProps) {
+  const models: ApiModel[] = availableModels?.length
+    ? availableModels
+    : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
+
   const [value, setValue] = useState("");
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { listening, supported: micSupported, toggle: toggleMic } = useSpeechToText(
+    (text) => setValue((prev) => (prev ? prev + " " + text : text)),
+  );
 
   function handleSend() {
     const trimmed = value.trim();
@@ -353,10 +365,6 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
 
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }
-
-  function handleSuggestionSelect(prompt: string) {
-    onSendMessage(prompt);
   }
 
   const canSend = !disabled && value.trim().length > 0;
@@ -402,6 +410,7 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
                 selectedModelId={selectedModelId}
                 onModelChange={onModelChange}
                 disabled={disabled}
+                models={models}
               />
             </div>
 
@@ -432,7 +441,7 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
               />
 
               <div className="mb-0.5 flex shrink-0 items-center gap-0.5">
-                {!canSend && (
+                {!canSend && micSupported && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -440,13 +449,21 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
                         variant="ghost"
                         size="icon-sm"
                         disabled={disabled}
-                        aria-label="Use microphone"
-                        className="rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                        onClick={toggleMic}
+                        aria-label={listening ? "Stop recording" : "Use microphone"}
+                        className={cn(
+                          "rounded-full hover:bg-zinc-800",
+                          listening
+                            ? "animate-pulse text-red-400 hover:text-red-300"
+                            : "text-zinc-400 hover:text-zinc-100",
+                        )}
                       >
-                        <Mic className="size-4" />
+                        {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Use microphone</TooltipContent>
+                    <TooltipContent side="top">
+                      {listening ? "Stop recording" : "Use microphone"}
+                    </TooltipContent>
                   </Tooltip>
                 )}
 
@@ -483,16 +500,6 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
             for new line
           </p>
 
-          {/* ── Suggestion cards ─────────────────────────────────────────── */}
-          <div className="flex w-full flex-col gap-4 pt-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-zinc-500">
-              Try asking
-            </p>
-            <SuggestionCards
-              prompts={SUGGESTION_PROMPTS}
-              onSelect={handleSuggestionSelect}
-            />
-          </div>
         </div>
       </div>
     </TooltipProvider>
