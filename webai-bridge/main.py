@@ -888,9 +888,17 @@ def list_models(user = Depends(get_current_user)):
         {
             "id": "gemini-3-flash",
             "name": "Gemini 3 Flash",
-            "description": "Fast and efficient model for quick responses",
+            "description": "Fast and efficient — best for quick questions",
             "contextWindow": "1M tokens",
             "badge": "Fast",
+            "available": connected
+        },
+        {
+            "id": "gemini-3-flash-plus",
+            "name": "Gemini 3 Flash+",
+            "description": "Enhanced Flash with better accuracy",
+            "contextWindow": "1M tokens",
+            "badge": "Fast+",
             "available": connected
         },
         {
@@ -900,7 +908,31 @@ def list_models(user = Depends(get_current_user)):
             "contextWindow": "2M tokens",
             "badge": "Pro",
             "available": connected
-        }
+        },
+        {
+            "id": "gemini-3-pro-plus",
+            "name": "Gemini 3 Pro+",
+            "description": "Enhanced Pro with deeper reasoning",
+            "contextWindow": "2M tokens",
+            "badge": "Pro+",
+            "available": connected
+        },
+        {
+            "id": "gemini-3-flash-thinking",
+            "name": "Gemini 3 Flash Thinking",
+            "description": "Flash with step-by-step reasoning",
+            "contextWindow": "1M tokens",
+            "badge": "Thinking",
+            "available": connected
+        },
+        {
+            "id": "gemini-3-pro-advanced",
+            "name": "Gemini 3 Pro Advanced",
+            "description": "Most capable model — best for hard problems",
+            "contextWindow": "2M tokens",
+            "badge": "Advanced",
+            "available": connected
+        },
     ]
     
     return {
@@ -1029,14 +1061,15 @@ def update_user_profile(
     
     return {"success": True, "message": "Preferences updated"}
 
-# POST /api/user/logout - Explicit logout
+# POST /api/user/logout - Explicit logout + Gemini disconnect
 @app.post("/api/user/logout", dependencies=[Depends(get_current_user)])
-def logout(user = Depends(get_current_user)):
+async def logout(user = Depends(get_current_user)):
     """
-    Explicit logout endpoint.
-    Frontend should clear the token from localStorage.
+    Logout: clear JWT on frontend AND disconnect Gemini session.
+    Reuses the same cleanup as DELETE /api/cookies.
     """
-    # In future, could add token blacklist or session cleanup
+    delete_cookies(user["user_id"])
+    await remove_webai_client_for_user(user["user_id"])
     return {"success": True, "message": "Logged out successfully"}
 
 
