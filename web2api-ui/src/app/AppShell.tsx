@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 
-import type { AIModelId, ApiModel, ChatSession } from "@/types/chat";
+import type { AIModelId, ApiModel, ChatSession, UserAgent } from "@/types/chat";
 import { AI_MODELS, groupChatsByDate, SUGGESTION_PROMPTS } from "@/data/mockChats";
 import type { ChatGroup } from "@/data/mockChats";
 
@@ -56,6 +56,9 @@ export interface ChatHomeProps {
   disabled?: boolean;
   onModelChange: (id: AIModelId) => void;
   availableModels: ApiModel[];
+  myAgents: UserAgent[];
+  selectedAgentId: string | null;
+  onAgentChange: (id: string | null) => void;
 }
 
 export interface ChatMessagesProps {
@@ -68,6 +71,9 @@ export interface ChatMessagesProps {
   hasMore: boolean;
   isLoadingMore: boolean;
   availableModels: ApiModel[];
+  myAgents: UserAgent[];
+  selectedAgentId: string | null;
+  onAgentChange: (id: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +87,8 @@ export default function AppShell() {
     messagesByConvId,
     messagesTotalByConvId,
     availableModels,
+    myAgents,
+    selectedAgentId,
     sidebarCollapsed,
     mobileSidebarOpen,
     selectedModelId,
@@ -88,6 +96,7 @@ export default function AppShell() {
     isLoadingMoreMessages,
     loadConversations,
     loadModels,
+    loadMyAgents,
     checkCookies,
     selectConversation,
     newChat,
@@ -100,15 +109,17 @@ export default function AppShell() {
     setSidebarCollapsed,
     setMobileSidebarOpen,
     setSelectedModelId,
+    setSelectedAgentId,
     setShowCookieModal,
   } = useConversationStore();
 
-  // On mount: load models, check cookies, load conversation list
+  // On mount: load models, check cookies, load conversation list, load user agents
   useEffect(() => {
     void loadModels();
     void checkCookies();
     void loadConversations();
-  }, [loadModels, checkCookies, loadConversations]);
+    void loadMyAgents();
+  }, [loadModels, checkCookies, loadConversations, loadMyAgents]);
 
   // Derive sidebar groups from API conversations
   const sidebarGroups = useMemo(
@@ -191,6 +202,9 @@ export default function AppShell() {
                 }
                 isLoadingMore={isLoadingMoreMessages}
                 availableModels={availableModels}
+                myAgents={myAgents}
+                selectedAgentId={selectedAgentId}
+                onAgentChange={setSelectedAgentId}
               />
             ) : (
               <ChatHome
@@ -198,6 +212,9 @@ export default function AppShell() {
                 onSendMessage={(content) => void sendMessage(content)}
                 onModelChange={handleModelChange}
                 availableModels={availableModels}
+                myAgents={myAgents}
+                selectedAgentId={selectedAgentId}
+                onAgentChange={setSelectedAgentId}
               />
             )}
           </main>

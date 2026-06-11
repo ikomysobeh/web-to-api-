@@ -1,0 +1,220 @@
+import { create } from "zustand";
+import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser } from "@/types/chat";
+import {
+  listAgents,
+  createAgent as apiCreateAgent,
+  updateAgent as apiUpdateAgent,
+  deactivateAgent as apiDeactivateAgent,
+  listAgentDocuments,
+  uploadAgentDocument as apiUploadAgentDocument,
+  deleteAgentDocument as apiDeleteAgentDocument,
+  listUsers as apiListUsers,
+  getAgentUsers as apiGetAgentUsers,
+  assignAgentUsers as apiAssignAgentUsers,
+  removeAgentUser as apiRemoveAgentUser,
+} from "@/services/api";
+
+function getToken(): string {
+  return localStorage.getItem("auth_token") ?? "";
+}
+
+interface AdminStore {
+  agents: Agent[];
+  isLoadingAgents: boolean;
+  isSaving: boolean;
+  documentsByAgentId: Record<string, AgentDocument[]>;
+  isLoadingDocs: boolean;
+  isUploading: boolean;
+  users: AdminUser[];
+  isLoadingUsers: boolean;
+  assignedUsersByAgentId: Record<string, AgentUser[]>;
+  isLoadingAgentUsers: boolean;
+  isAssigning: boolean;
+  loadAgents: () => Promise<void>;
+  createAgent: (data: AgentCreate) => Promise<Agent>;
+  updateAgent: (id: string, data: AgentUpdate) => Promise<void>;
+  deactivateAgent: (id: string) => Promise<void>;
+  loadDocuments: (agentId: string) => Promise<void>;
+  uploadDocument: (agentId: string, file: File) => Promise<void>;
+  deleteDocument: (agentId: string, filename: string) => Promise<void>;
+  loadUsers: () => Promise<void>;
+  loadAgentUsers: (agentId: string) => Promise<void>;
+  assignAgentUsers: (agentId: string, userIds: number[]) => Promise<void>;
+  removeAgentUser: (agentId: string, userId: number) => Promise<void>;
+}
+
+const initialState = {
+  agents: [] as Agent[],
+  isLoadingAgents: false,
+  isSaving: false,
+  documentsByAgentId: {} as Record<string, AgentDocument[]>,
+  isLoadingDocs: false,
+  isUploading: false,
+  users: [] as AdminUser[],
+  isLoadingUsers: false,
+  assignedUsersByAgentId: {} as Record<string, AgentUser[]>,
+  isLoadingAgentUsers: false,
+  isAssigning: false,
+};
+
+export const useAdminStore = create<AdminStore>((set) => ({
+  ...initialState,
+
+  loadAgents: async () => {
+    const token = getToken();
+    if (!token) return;
+    set({ isLoadingAgents: true });
+    try {
+      const data = await listAgents(token);
+      set({ agents: data.agents, isLoadingAgents: false });
+    } catch {
+      set({ isLoadingAgents: false });
+    }
+  },
+
+  createAgent: async (data: AgentCreate): Promise<Agent> => {
+    const token = getToken();
+    set({ isSaving: true });
+    try {
+      const res = await apiCreateAgent(token, data);
+      set((state) => ({
+        agents: [res.agent, ...state.agents],
+        isSaving: false,
+      }));
+      return res.agent;
+    } catch (err) {
+      set({ isSaving: false });
+      throw err;
+    }
+  },
+
+  updateAgent: async (id: string, data: AgentUpdate) => {
+    const token = getToken();
+    set({ isSaving: true });
+    try {
+      const res = await apiUpdateAgent(token, id, data);
+      set((state) => ({
+        agents: state.agents.map((a) => (a.id === id ? res.agent : a)),
+        isSaving: false,
+      }));
+    } catch (err) {
+      set({ isSaving: false });
+      throw err;
+    }
+  },
+
+  deactivateAgent: async (id: string) => {
+    const token = getToken();
+    await apiDeactivateAgent(token, id);
+    set((state) => ({
+      agents: state.agents.map((a) =>
+        a.id === id ? { ...a, is_active: false } : a,
+      ),
+    }));
+  },
+
+  loadDocuments: async (agentId: string) => {
+    const token = getToken();
+    if (!token) return;
+    set({ isLoadingDocs: true });
+    try {
+      const data = await listAgentDocuments(token, agentId);
+      set((state) => ({
+        documentsByAgentId: { ...state.documentsByAgentId, [agentId]: data.documents },
+        isLoadingDocs: false,
+      }));
+    } catch {
+      set({ isLoadingDocs: false });
+    }
+  },
+
+  uploadDocument: async (agentId: string, file: File) => {
+    const token = getToken();
+    set({ isUploading: true });
+    try {
+      const res = await apiUploadAgentDocument(token, agentId, file);
+      set((state) => ({
+        documentsByAgentId: {
+          ...state.documentsByAgentId,
+          [agentId]: [
+            ...(state.documentsByAgentId[agentId] ?? []),
+            { filename: res.filename, chunk_count: res.chunks },
+          ],
+        },
+        isUploading: false,
+      }));
+    } catch (err) {
+      set({ isUploading: false });
+      throw err;
+    }
+  },
+
+  deleteDocument: async (agentId: string, filename: string) => {
+    const token = getToken();
+    await apiDeleteAgentDocument(token, agentId, filename);
+    set((state) => ({
+      documentsByAgentId: {
+        ...state.documentsByAgentId,
+        [agentId]: (state.documentsByAgentId[agentId] ?? []).filter(
+          (d) => d.filename !== filename,
+        ),
+      },
+    }));
+  },
+
+  loadUsers: async () => {
+    const token = getToken();
+    if (!token) return;
+    set({ isLoadingUsers: true });
+    try {
+      const data = await apiListUsers(token);
+      set({ users: data.users, isLoadingUsers: false });
+    } catch {
+      set({ isLoadingUsers: false });
+    }
+  },
+
+  loadAgentUsers: async (agentId: string) => {
+    const token = getToken();
+    if (!token) return;
+    set({ isLoadingAgentUsers: true });
+    try {
+      const data = await apiGetAgentUsers(token, agentId);
+      set((state) => ({
+        assignedUsersByAgentId: { ...state.assignedUsersByAgentId, [agentId]: data.users },
+        isLoadingAgentUsers: false,
+      }));
+    } catch {
+      set({ isLoadingAgentUsers: false });
+    }
+  },
+
+  assignAgentUsers: async (agentId: string, userIds: number[]) => {
+    const token = getToken();
+    set({ isAssigning: true });
+    try {
+      await apiAssignAgentUsers(token, agentId, userIds);
+      const data = await apiGetAgentUsers(token, agentId);
+      set((state) => ({
+        assignedUsersByAgentId: { ...state.assignedUsersByAgentId, [agentId]: data.users },
+        isAssigning: false,
+      }));
+    } catch (err) {
+      set({ isAssigning: false });
+      throw err;
+    }
+  },
+
+  removeAgentUser: async (agentId: string, userId: number) => {
+    const token = getToken();
+    await apiRemoveAgentUser(token, agentId, userId);
+    set((state) => ({
+      assignedUsersByAgentId: {
+        ...state.assignedUsersByAgentId,
+        [agentId]: (state.assignedUsersByAgentId[agentId] ?? []).filter(
+          (u) => u.id !== userId,
+        ),
+      },
+    }));
+  },
+}));

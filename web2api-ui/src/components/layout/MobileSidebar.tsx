@@ -2,14 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import {
   MessageSquarePlus,
   Search,
+  Shield,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import type { ChatGroup } from "@/data/mockChats";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 import { SidebarItem } from "./SidebarItem";
 import { SidebarFooter } from "./SidebarFooter";
@@ -37,6 +40,8 @@ export function MobileSidebar({
   onRenameChat,
   onClearAll,
 }: MobileSidebarProps) {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [confirmClear, setConfirmClear] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -159,6 +164,16 @@ export function MobileSidebar({
             <Search className="size-4 shrink-0" />
             Search
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => { navigate("/admin"); close(); }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-800/40 hover:text-zinc-300"
+            >
+              <Shield className="size-4 shrink-0" />
+              Admin
+            </button>
+          )}
         </div>
 
         {/* ── Search input ────────────────────────────────────────────── */}

@@ -19,6 +19,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 import type { ChatHomeProps } from "@/app/AppShell";
 import type { AIModelId, ApiModel } from "@/types/chat";
+import { AgentDropdown } from "./AgentDropdown";
 import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -328,7 +329,7 @@ function UploadMenu({
 // ChatHome — Gemini-style empty / welcome state
 // ---------------------------------------------------------------------------
 
-export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, availableModels }: ChatHomeProps) {
+export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, availableModels, myAgents, selectedAgentId, onAgentChange }: ChatHomeProps) {
   const models: ApiModel[] = availableModels?.length
     ? availableModels
     : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
@@ -405,11 +406,19 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
               disabled && "opacity-60",
             )}
           >
-            <div className="px-1 pb-1.5">
+            <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
+              {myAgents.length > 0 && (
+                <AgentDropdown
+                  myAgents={myAgents}
+                  selectedAgentId={selectedAgentId ?? null}
+                  onAgentChange={onAgentChange}
+                  disabled={disabled}
+                />
+              )}
               <ModelDropdown
                 selectedModelId={selectedModelId}
                 onModelChange={onModelChange}
-                disabled={disabled}
+                disabled={disabled || !!selectedAgentId}
                 models={models}
               />
             </div>

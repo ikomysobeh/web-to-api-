@@ -1,4 +1,4 @@
-import type { ApiConversation, ApiMessage, ApiModel, ApiUserProfile } from "@/types/chat";
+import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, ApiConversation, ApiMessage, ApiModel, ApiUserProfile, UserAgent } from "@/types/chat";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
@@ -201,13 +201,16 @@ export async function sendConversationMessage(
   conversationId: string,
   message: string,
   model: string,
+  agentId?: string,
 ): Promise<Response> {
+  const body: Record<string, string> = { message, model };
+  if (agentId) body.agent_id = agentId;
   const res = await fetch(
     `${BASE}/api/conversations/${conversationId}/messages`,
     {
       method: "POST",
       headers: authHeaders(token),
-      body: JSON.stringify({ message, model }),
+      body: JSON.stringify(body),
     },
   );
   if (!res.ok) throw res;
@@ -295,3 +298,185 @@ export async function postLogout(token: string): Promise<void> {
   });
   // fire-and-forget — server is stateless, always clear local state
 }
+
+// ---------------------------------------------------------------------------
+// Admin — Agents
+// ---------------------------------------------------------------------------
+
+export async function checkAdmin(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/admin/agents`, { headers: authHeaders(token) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function listAgents(token: string): Promise<{ agents: Agent[] }> {
+  const res = await fetch(`${BASE}/admin/agents`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function createAgent(
+  token: string,
+  data: AgentCreate,
+): Promise<{ agent: Agent }> {
+  const res = await fetch(`${BASE}/admin/agents`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function getAgent(token: string, id: string): Promise<{ agent: Agent }> {
+  const res = await fetch(`${BASE}/admin/agents/${id}`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function updateAgent(
+  token: string,
+  id: string,
+  data: AgentUpdate,
+): Promise<{ agent: Agent }> {
+  const res = await fetch(`${BASE}/admin/agents/${id}`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function deactivateAgent(
+  token: string,
+  id: string,
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/admin/agents/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Documents
+// ---------------------------------------------------------------------------
+
+export async function listAgentDocuments(
+  token: string,
+  agentId: string,
+): Promise<{ documents: AgentDocument[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/documents`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function uploadAgentDocument(
+  token: string,
+  agentId: string,
+  file: File,
+): Promise<{ success: boolean; message: string; filename: string; chunks: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/documents`, {
+    method: "POST",
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function deleteAgentDocument(
+  token: string,
+  agentId: string,
+  filename: string,
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(
+    `${BASE}/admin/agents/${agentId}/documents/${encodeURIComponent(filename)}`,
+    { method: "DELETE", headers: authHeaders(token) },
+  );
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Users
+// ---------------------------------------------------------------------------
+
+export async function listUsers(token: string): Promise<{ users: AdminUser[] }> {
+  const res = await fetch(`${BASE}/admin/users`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Agent User Assignments
+// ---------------------------------------------------------------------------
+
+export async function getAgentUsers(
+  token: string,
+  agentId: string,
+): Promise<{ users: AgentUser[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/users`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function assignAgentUsers(
+  token: string,
+  agentId: string,
+  userIds: number[],
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/users`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ user_ids: userIds }),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function removeAgentUser(
+  token: string,
+  agentId: string,
+  userId: number,
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/users/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// User — Agents (user-facing)
+// ---------------------------------------------------------------------------
+
+export async function listMyAgents(token: string): Promise<{ agents: UserAgent[] }> {
+  const res = await fetch(`${BASE}/api/agents`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function getMyAgent(
+  token: string,
+  agentId: string,
+): Promise<{ agent: UserAgent }> {
+  const res = await fetch(`${BASE}/api/agents/${agentId}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+

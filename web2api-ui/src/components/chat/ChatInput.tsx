@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
-import type { AIModelId, ApiModel } from "@/types/chat";
+import type { AIModelId, ApiModel, UserAgent } from "@/types/chat";
+import { AgentDropdown } from "./AgentDropdown";
 import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,9 @@ export interface ChatInputProps {
   selectedModelId: AIModelId;
   onModelChange: (id: AIModelId) => void;
   availableModels?: ApiModel[];
+  myAgents?: UserAgent[];
+  selectedAgentId?: string | null;
+  onAgentChange?: (id: string | null) => void;
 }
 
 function ModelDropdown({
@@ -331,6 +335,9 @@ export function ChatInput({
   selectedModelId,
   onModelChange,
   availableModels,
+  myAgents = [],
+  selectedAgentId = null,
+  onAgentChange,
 }: ChatInputProps) {
   // Fall back to static AI_MODELS while API models are loading
   const models: ApiModel[] = availableModels?.length
@@ -385,11 +392,20 @@ export function ChatInput({
           disabled && "opacity-60",
         )}
       >
-        <div className="px-1 pb-1.5">
+        <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
+          {myAgents.length > 0 && (
+            <AgentDropdown
+              myAgents={myAgents}
+              selectedAgentId={selectedAgentId}
+              onAgentChange={onAgentChange ?? (() => {})}
+              disabled={disabled}
+              dropUp
+            />
+          )}
           <ModelDropdown
             selectedModelId={selectedModelId}
             onModelChange={onModelChange}
-            disabled={disabled}
+            disabled={disabled || !!selectedAgentId}
             models={models}
           />
         </div>

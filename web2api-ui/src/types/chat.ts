@@ -115,6 +115,54 @@ export interface ApiMessage {
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Agent types
+// ---------------------------------------------------------------------------
+
+export interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  model: string;
+  instructions: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentCreate {
+  name: string;
+  description?: string;
+  model?: string;
+  instructions: string;
+}
+
+export type AgentUpdate = Partial<AgentCreate> & { is_active?: boolean };
+
+export interface AgentDocument {
+  filename: string;
+  chunk_count: number;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  role: string;
+  external_id: number | null;
+  synced_at: string | null;
+}
+
+export interface AgentUser {
+  id: number;
+  email: string;
+}
+
+export interface UserAgent {
+  id: string;
+  name: string;
+  description: string;
+}
+
+// ---------------------------------------------------------------------------
 // Mapper: backend message → UI ChatMessage
 // ---------------------------------------------------------------------------
 

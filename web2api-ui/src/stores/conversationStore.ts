@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { AIModelId, ApiConversation, ApiModel, ChatMessage } from "@/types/chat";
+import type { AIModelId, ApiConversation, ApiModel, ChatMessage, UserAgent } from "@/types/chat";
 import { apiMsgToChat } from "@/types/chat";
 import {
   getConversations,
@@ -14,6 +14,7 @@ import {
   deleteConversationMessage,
   getModels,
   getCookiesStatus,
+  listMyAgents,
 } from "@/services/api";
 
 // Default fallback model until /api/models is loaded
@@ -32,6 +33,10 @@ export interface ConversationStore {
   messagesOffsetByConvId: Record<string, number>;
   /** Available models from GET /api/models */
   availableModels: ApiModel[];
+  /** Agents the current user is assigned to */
+  myAgents: UserAgent[];
+  isLoadingMyAgents: boolean;
+  selectedAgentId: string | null;
 
   // ── UI ────────────────────────────────────────────────────────────────────
   sidebarCollapsed: boolean;
@@ -48,6 +53,8 @@ export interface ConversationStore {
   loadConversations: () => Promise<void>;
   /** Load available models from API and update selectedModelId if needed */
   loadModels: () => Promise<void>;
+  loadMyAgents: () => Promise<void>;
+  setSelectedAgentId: (id: string | null) => void;
   checkCookies: () => Promise<void>;
   createAndSelectConversation: (firstMessage: string) => Promise<string>;
   selectConversation: (id: string) => Promise<void>;
@@ -80,6 +87,9 @@ const initialState = {
   messagesTotalByConvId: {} as Record<string, number>,
   messagesOffsetByConvId: {} as Record<string, number>,
   availableModels: [] as ApiModel[],
+  myAgents: [] as UserAgent[],
+  isLoadingMyAgents: false,
+  selectedAgentId: null as string | null,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   selectedModelId: DEFAULT_MODEL as AIModelId,
@@ -224,7 +234,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     const trimmed = content.trim();
     if (!trimmed || !token) return;
 
-    const { selectedModelId } = get();
+    const { selectedModelId, selectedAgentId } = get();
     const backendModel = selectedModelId;
 
     let convId = get().activeConversationId;
@@ -281,7 +291,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
     let fullContent = "";
     try {
-      const res = await sendConversationMessage(token, convId, trimmed, backendModel);
+      const res = await sendConversationMessage(token, convId, trimmed, backendModel, selectedAgentId ?? undefined);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -467,7 +477,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
   setMobileSidebarOpen: (v) => set({ mobileSidebarOpen: v }),
   setSelectedModelId: (id) => set({ selectedModelId: id }),
+  setSelectedAgentId: (id) => set({ selectedAgentId: id }),
   setShowCookieModal: (v) => set({ showCookieModal: v }),
+
+  loadMyAgents: async () => {
+    const token = getToken();
+    if (!token) return;
+    set({ isLoadingMyAgents: true });
+    try {
+      const data = await listMyAgents(token);
+      set({ myAgents: data.agents, isLoadingMyAgents: false });
+    } catch {
+      set({ isLoadingMyAgents: false });
+    }
+  },
 
   // ── Reset on logout ───────────────────────────────────────────────────────
 

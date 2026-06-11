@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getMe } from '@/services/api'
+import { getMe, checkAdmin } from '@/services/api'
 
 interface User {
   email: string
@@ -15,6 +15,7 @@ interface AuthContextValue {
   user: User | null
   token: string | null
   isLoading: boolean
+  isAdmin: boolean | null
   login: (token: string, email: string) => void
   logout: () => void
 }
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
 
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token')
@@ -37,10 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(() => {
         setToken(storedToken)
         setUser({ email: storedEmail ?? '' })
+        void checkAdmin(storedToken).then(setIsAdmin)
       })
       .catch(() => {
         localStorage.removeItem('auth_token')
         localStorage.removeItem('auth_email')
+        setIsAdmin(false)
       })
       .finally(() => setIsLoading(false))
   }, [])
@@ -50,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('auth_email', email)
     setToken(newToken)
     setUser({ email })
+    void checkAdmin(newToken).then(setIsAdmin)
   }
 
   function logout() {
@@ -57,10 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth_email')
     setToken(null)
     setUser(null)
+    setIsAdmin(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

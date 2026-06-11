@@ -4,15 +4,18 @@ import {
   ChevronRight,
   MessageSquarePlus,
   Search,
+  Shield,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import type { ChatGroup } from "@/data/mockChats";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
@@ -33,9 +36,13 @@ interface SidebarProps {
 function CollapsedSidebar({
   onNewChat,
   onToggleCollapse,
+  isAdmin,
+  onNavigateAdmin,
 }: {
   onNewChat: () => void;
   onToggleCollapse: () => void;
+  isAdmin: boolean | null;
+  onNavigateAdmin: () => void;
 }) {
   return (
     <aside className="flex h-full w-14 shrink-0 flex-col items-center overflow-hidden border-r border-zinc-800/70 bg-zinc-950">
@@ -52,6 +59,9 @@ function CollapsedSidebar({
         <IconBtn icon={MessageSquarePlus} label="New chat" onClick={onNewChat} />
         {/* Search expands the sidebar first */}
         <IconBtn icon={Search} label="Search" onClick={onToggleCollapse} />
+        {isAdmin && (
+          <IconBtn icon={Shield} label="Admin" onClick={onNavigateAdmin} />
+        )}
       </div>
 
       <div className="flex-1" />
@@ -101,6 +111,8 @@ export function Sidebar({
   onRenameChat,
   onClearAll,
 }: SidebarProps) {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [confirmClear, setConfirmClear] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,7 +136,14 @@ export function Sidebar({
     : groups;
 
   if (collapsed) {
-    return <CollapsedSidebar onNewChat={onNewChat} onToggleCollapse={onToggleCollapse} />;
+    return (
+      <CollapsedSidebar
+        onNewChat={onNewChat}
+        onToggleCollapse={onToggleCollapse}
+        isAdmin={isAdmin}
+        onNavigateAdmin={() => navigate("/admin")}
+      />
+    );
   }
 
   function handleClearAll() {
@@ -181,6 +200,13 @@ export function Sidebar({
           active={showSearch}
           onClick={() => setShowSearch((v) => !v)}
         />
+        {isAdmin && (
+          <NavBtn
+            icon={Shield}
+            label="Admin"
+            onClick={() => navigate("/admin")}
+          />
+        )}
       </div>
 
       {/* ── Search input ─────────────────────────────────────────────────── */}

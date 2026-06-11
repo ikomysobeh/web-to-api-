@@ -189,6 +189,9 @@ export function ChatMessages({
   hasMore,
   isLoadingMore,
   availableModels,
+  myAgents,
+  selectedAgentId,
+  onAgentChange,
 }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [confirmMsgId, setConfirmMsgId] = useState<string | null>(null);
@@ -260,6 +263,9 @@ export function ChatMessages({
             selectedModelId={selectedModelId}
             onModelChange={onModelChange}
             availableModels={availableModels}
+            myAgents={myAgents}
+            selectedAgentId={selectedAgentId}
+            onAgentChange={onAgentChange}
           />
         </div>
       </div>
