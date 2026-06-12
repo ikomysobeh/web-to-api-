@@ -145,10 +145,9 @@ export interface AgentDocument {
 
 export interface AdminUser {
   id: number;
+  name: string;
   email: string;
   role: string;
-  external_id: number | null;
-  synced_at: string | null;
 }
 
 export interface AgentUser {

@@ -113,16 +113,15 @@ export function MobileSidebar({
         aria-modal="true"
         aria-label="Navigation"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden md:hidden",
-          "border-r border-zinc-800/70 bg-zinc-950",
+          "glass-nav fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-white/5 md:hidden",
           "transition-transform duration-200 ease-in-out",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="flex shrink-0 items-center justify-between border-b border-zinc-800/70 px-3 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-3 py-3">
           <div className="flex select-none items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-violet-600">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
               <Sparkles className="size-3.5 text-white" />
             </div>
             <span className="text-sm font-semibold tracking-tight text-zinc-100">
@@ -133,7 +132,7 @@ export function MobileSidebar({
             type="button"
             onClick={close}
             aria-label="Close menu"
-            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-200"
+            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-200"
           >
             <X className="size-4" />
           </button>
@@ -144,7 +143,7 @@ export function MobileSidebar({
           <button
             type="button"
             onClick={handleNewChat}
-            className="flex w-full items-center gap-2.5 rounded-xl bg-zinc-800/50 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+            className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-200 transition-all hover:bg-white/10 hover:text-white active:scale-[0.99]"
           >
             <MessageSquarePlus className="size-4 shrink-0" />
             New chat
@@ -152,13 +151,13 @@ export function MobileSidebar({
         </div>
 
         {/* ── Nav links ───────────────────────────────────────────────── */}
-        <div className="shrink-0 border-b border-zinc-800/50 px-3 pb-2">
+        <div className="shrink-0 border-b border-white/5 px-3 pb-2">
           <button
             type="button"
             onClick={() => setShowSearch((v) => !v)}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-zinc-800/40",
-              showSearch ? "bg-zinc-800/50 text-zinc-200" : "text-zinc-500 hover:text-zinc-300",
+              "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-white/5",
+              showSearch ? "bg-white/10 text-zinc-200" : "text-zinc-500 hover:text-zinc-300",
             )}
           >
             <Search className="size-4 shrink-0" />
@@ -168,7 +167,7 @@ export function MobileSidebar({
             <button
               type="button"
               onClick={() => { navigate("/admin"); close(); }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-800/40 hover:text-zinc-300"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
             >
               <Shield className="size-4 shrink-0" />
               Admin
@@ -178,8 +177,8 @@ export function MobileSidebar({
 
         {/* ── Search input ────────────────────────────────────────────── */}
         {showSearch && (
-          <div className="shrink-0 border-b border-zinc-800/50 px-3 py-2">
-            <div className="flex items-center gap-2 rounded-xl bg-zinc-800/50 px-3 py-2 ring-1 ring-zinc-700/40 focus-within:ring-violet-500/40">
+          <div className="shrink-0 border-b border-white/5 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-inset ring-white/10 focus-within:ring-violet-400/40">
               <Search className="size-3.5 shrink-0 text-zinc-500" />
               <input
                 ref={searchInputRef}
@@ -237,9 +236,9 @@ export function MobileSidebar({
 
         {/* ── Clear all ────────────────────────────────────────────────── */}
         {totalChats > 0 && (
-          <div className="shrink-0 border-t border-zinc-800/50 px-3 py-2">
+          <div className="shrink-0 border-t border-white/5 px-3 py-2">
             {confirmClear ? (
-              <div className="flex items-center justify-between rounded-xl bg-red-950/20 px-3 py-2 ring-1 ring-inset ring-red-900/30">
+              <div className="flex items-center justify-between rounded-xl bg-red-500/10 px-3 py-2 ring-1 ring-inset ring-red-400/20">
                 <span className="text-xs text-red-400">
                   Delete {totalChats} conversation{totalChats !== 1 ? "s" : ""}?
                 </span>
@@ -264,7 +263,7 @@ export function MobileSidebar({
               <button
                 type="button"
                 onClick={() => setConfirmClear(true)}
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-600 transition-colors hover:bg-zinc-800/40 hover:text-zinc-400"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-400"
               >
                 <Trash2 className="size-3 shrink-0" />
                 Clear all history
@@ -274,7 +273,7 @@ export function MobileSidebar({
         )}
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-zinc-800/70">
+        <div className="shrink-0 border-t border-white/5">
           <SidebarFooter collapsed={false} />
         </div>
       </aside>

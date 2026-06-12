@@ -7,7 +7,6 @@ import { AgentsPage } from '@/components/admin/AgentsPage'
 import { AgentDetailPage } from '@/components/admin/AgentDetailPage'
 import { UsersPage } from '@/components/admin/UsersPage'
 import LoginPage from '@/pages/LoginPage'
-import RegisterPage from '@/pages/RegisterPage'
 import type { ReactNode } from 'react'
 
 function Spinner() {
@@ -39,7 +38,6 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/chat"
             element={

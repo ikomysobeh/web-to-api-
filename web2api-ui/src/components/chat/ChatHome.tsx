@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { useAuth } from "@/context/AuthContext";
 
 import type { ChatHomeProps } from "@/app/AppShell";
 import type { AIModelId, ApiModel } from "@/types/chat";
@@ -101,8 +102,7 @@ function ModelDropdown({
         <div
           role="menu"
           className={cn(
-            "absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-3xl",
-            "border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/40",
+            "glass-strong absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-3xl p-2",
           )}
         >
           <div className="space-y-1">
@@ -227,7 +227,7 @@ function UploadMenu({
       {open && (
         <div
           role="menu"
-          className="absolute top-full left-0 z-50 mt-3 w-64 rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/50"
+          className="glass-strong absolute top-full left-0 z-50 mt-3 w-64 rounded-3xl p-2"
         >
           <button
             type="button"
@@ -265,7 +265,7 @@ function UploadMenu({
             </button>
 
             {moreUploadsOpen && (
-              <div className="absolute bottom-0 left-full ml-2 w-52 rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/50">
+              <div className="glass-strong absolute bottom-0 left-full ml-2 w-52 rounded-3xl p-2">
                 <button
                   type="button"
                   role="menuitem"
@@ -330,6 +330,11 @@ function UploadMenu({
 // ---------------------------------------------------------------------------
 
 export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, availableModels, myAgents, selectedAgentId, onAgentChange }: ChatHomeProps) {
+  const { user } = useAuth();
+  const firstName = user?.email
+    ? user.email.split("@")[0][0].toUpperCase() + user.email.split("@")[0].slice(1)
+    : "there";
+
   const models: ApiModel[] = availableModels?.length
     ? availableModels
     : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
@@ -374,22 +379,24 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
     <TooltipProvider>
       <div
         className={cn(
-          "relative h-full overflow-y-auto bg-zinc-950",
+          "relative h-full overflow-y-auto",
           "before:pointer-events-none before:absolute before:inset-0",
-          "before:bg-[radial-gradient(ellipse_150%_90%_at_50%_-20%,rgba(124,58,237,0.18),rgba(59,130,246,0.08),transparent)]",
+          "before:bg-[radial-gradient(ellipse_150%_90%_at_50%_-20%,rgba(124,58,237,0.15),rgba(59,130,246,0.06),transparent)]",
         )}
       >
         <div className="relative z-10 mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center gap-10 px-4 py-16 sm:px-6">
 
           {/* ── Greeting ─────────────────────────────────────────────────── */}
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-violet-600 shadow-lg shadow-violet-900/40">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-900/50">
               <Sparkles className="size-6 text-white" />
             </div>
 
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl leading-tight">
+            <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl leading-tight">
               What can I help with,{" "}
-              <span className="text-violet-400">Naya?</span>
+              <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">
+                {firstName}?
+              </span>
             </h1>
 
             <p className="max-w-xl text-base text-zinc-400">
@@ -400,9 +407,8 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
           {/* ── Prompt input with model chip ─────────────────────────────── */}
           <div
             className={cn(
-              "flex w-full flex-col rounded-3xl bg-zinc-900/80 border border-white/5 px-3 pb-3 pt-3",
-              "shadow-[0_20px_80px_-50px_rgba(124,58,237,0.35)] ring-1 ring-zinc-700/30",
-              "transition-all duration-200 focus-within:ring-violet-500/30",
+              "glass flex w-full flex-col rounded-3xl px-3 pb-3 pt-3",
+              "transition-all duration-200 focus-within:border-violet-400/30 focus-within:shadow-[0_0_0_1px_rgba(167,139,250,0.25),0_20px_60px_-30px_rgba(124,58,237,0.55)]",
               disabled && "opacity-60",
             )}
           >
@@ -484,7 +490,7 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
                         size="icon-sm"
                         onClick={handleSend}
                         aria-label="Send message"
-                        className="size-8 rounded-full bg-violet-600 text-white transition-colors hover:bg-violet-500"
+                        className="size-8 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-95"
                       >
                         <ArrowUp className="size-4" />
                       </Button>
@@ -499,11 +505,11 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
           {/* ── Keyboard hint ──────────────────────────────────────────── */}
           <p className="text-center text-xs text-zinc-600">
             Press{" "}
-            <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-400">
+            <kbd className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-zinc-400 ring-1 ring-inset ring-white/10">
               Enter
             </kbd>{" "}
             to send ·{" "}
-            <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-400">
+            <kbd className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-zinc-400 ring-1 ring-inset ring-white/10">
               Shift+Enter
             </kbd>{" "}
             for new line

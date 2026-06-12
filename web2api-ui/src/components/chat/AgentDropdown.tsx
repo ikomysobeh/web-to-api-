@@ -88,8 +88,7 @@ export function AgentDropdown({
         <div
           role="menu"
           className={cn(
-            "absolute left-0 z-50 w-64 overflow-hidden rounded-3xl",
-            "border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/40",
+            "glass-strong absolute left-0 z-50 w-64 overflow-hidden rounded-3xl p-2",
             dropUp ? "bottom-full mb-2" : "top-full mt-2",
           )}
         >

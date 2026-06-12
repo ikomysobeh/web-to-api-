@@ -110,15 +110,15 @@ export function SidebarItem({
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
       }}
       className={cn(
-        "group grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 overflow-hidden rounded-xl py-2 pl-3 pr-1.5 text-sm transition-colors duration-100",
+        "group relative grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 overflow-hidden rounded-xl py-2 pl-3 pr-1.5 text-sm transition-colors duration-100",
         active
-          ? "bg-zinc-800/70 text-white"
-          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100",
+          ? "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/5 text-white ring-1 ring-inset ring-violet-500/15"
+          : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100",
       )}
     >
       {/* Violet accent bar when active */}
       {active && (
-        <span className="pointer-events-none absolute left-0 h-5 w-0.5 rounded-full bg-violet-500" />
+        <span className="pointer-events-none absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-violet-400 to-fuchsia-400" />
       )}
 
       <span className="min-w-0 truncate leading-snug" title={title}>

@@ -105,7 +105,7 @@ function ModelDropdown({
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/40"
+          className="glass-strong absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-3xl p-2"
         >
           <div className="space-y-1">
             {models.map((model) => {
@@ -229,7 +229,7 @@ function UploadMenu({
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-50 mb-3 w-64 rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/50"
+          className="glass-strong absolute bottom-full left-0 z-50 mb-3 w-64 rounded-3xl p-2"
         >
           <button
             type="button"
@@ -267,7 +267,7 @@ function UploadMenu({
             </button>
 
             {moreUploadsOpen && (
-              <div className="absolute bottom-0 left-full ml-2 w-52 rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl shadow-black/50">
+              <div className="glass-strong absolute bottom-0 left-full ml-2 w-52 rounded-3xl p-2">
                 <button
                   type="button"
                   role="menuitem"
@@ -386,9 +386,8 @@ export function ChatInput({
         role="group"
         aria-label="Chat input"
         className={cn(
-          "flex w-full flex-col rounded-4xl bg-zinc-900/90 border border-white/5 px-3 pb-3 pt-3",
-          "shadow-[0_18px_60px_-40px_rgba(124,58,237,0.35)] ring-1 ring-zinc-700/30",
-          "transition-all duration-200 focus-within:ring-violet-500/30",
+          "glass flex w-full flex-col rounded-4xl px-3 pb-3 pt-3",
+          "transition-all duration-200 focus-within:border-violet-400/30 focus-within:shadow-[0_0_0_1px_rgba(167,139,250,0.25),0_16px_40px_-20px_rgba(124,58,237,0.5)]",
           disabled && "opacity-60",
         )}
       >
@@ -471,7 +470,7 @@ export function ChatInput({
                     size="icon-sm"
                     onClick={handleSend}
                     aria-label="Send message"
-                    className="size-8 rounded-full bg-violet-600 text-white transition-colors hover:bg-violet-500"
+                    className="size-8 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-95"
                   >
                     <ArrowUp className="size-4" />
                   </Button>

@@ -46,11 +46,11 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
   }
 
   const dropdown = (
-    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 py-1 shadow-2xl shadow-black/60">
+    <div className="glass-strong absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-xl py-1">
       <button
         type="button"
         onClick={handleOpenSettings}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
       >
         <Settings className="size-4 shrink-0 text-zinc-500" />
         Settings
@@ -58,7 +58,7 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
       <button
         type="button"
         onClick={handleLogout}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-red-400"
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-red-400"
       >
         <LogOut className="size-4 shrink-0 text-zinc-500" />
         Sign out
@@ -75,7 +75,7 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
             aria-label="Account menu"
-            className="flex size-7 items-center justify-center rounded-lg bg-violet-700 text-[10px] font-bold text-white transition-colors hover:bg-violet-600"
+            className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40 transition-transform hover:scale-105"
           >
             {initials}
           </button>
@@ -95,11 +95,11 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
           onClick={() => setDropdownOpen((v) => !v)}
           aria-label="Account menu"
           className={cn(
-            "flex w-full items-center gap-2.5 px-3 py-3 transition-colors hover:bg-zinc-800/50",
-            dropdownOpen && "bg-zinc-800/40",
+            "flex w-full items-center gap-2.5 px-3 py-3 transition-colors hover:bg-white/5",
+            dropdownOpen && "bg-white/5",
           )}
         >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-700 text-[10px] font-bold text-white">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40">
             {initials}
           </div>
           <p className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">{email}</p>

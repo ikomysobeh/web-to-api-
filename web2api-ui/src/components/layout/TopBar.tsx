@@ -62,7 +62,7 @@ export function TopBar({
           )}
 
           <div className="flex select-none items-center gap-1.5 md:hidden">
-            <div className="flex size-6 items-center justify-center rounded-lg bg-violet-600">
+            <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
               <Sparkles className="size-3.5 text-white" />
             </div>
             <span className="text-sm font-semibold text-white">Lumina AI</span>

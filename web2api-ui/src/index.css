@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* ── Design tokens ───────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+}
+
 /* ── Full viewport ────────────────────────────────────────────────────────── */
 html,
 body,
@@ -8,10 +14,15 @@ body,
   overflow: hidden;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* ── Dark base ────────────────────────────────────────────────────────────── */
 body {
-  background-color: #09090b; /* zinc-950 */
-  color: #fafafa;            /* zinc-50  */
+  background-color: #07060b;
+  color: #fafafa;
+  font-family: var(--font-sans);
 }
 
 /* ── Font smoothing ──────────────────────────────────────────────────────── */
@@ -20,24 +31,78 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Aurora ambient backdrop ─────────────────────────────────────────────────
+   A fixed, layered radial mesh in a single cool accent family (violet →
+   fuchsia → indigo → sky) over near-black. Glass panels float above it so the
+   blur has something to refract. */
+.app-bg {
+  position: relative;
+  background-color: #07060b;
+  background-image:
+    radial-gradient(58% 50% at 12% -8%, rgba(139, 92, 246, 0.22), transparent 60%),
+    radial-gradient(48% 45% at 100% 0%, rgba(217, 70, 239, 0.14), transparent 58%),
+    radial-gradient(46% 50% at 90% 108%, rgba(56, 189, 248, 0.12), transparent 56%),
+    radial-gradient(54% 55% at -8% 110%, rgba(99, 102, 241, 0.16), transparent 58%);
+  background-attachment: fixed;
+}
+
+/* ── Glass surfaces ──────────────────────────────────────────────────────────
+   True glassmorphism: translucent fill + blur + a 1px top inner highlight to
+   fake edge refraction + a tinted ambient shadow. */
+@layer components {
+  .glass {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 16px 40px -20px rgba(10, 8, 22, 0.85);
+  }
+
+  /* Slightly more opaque + heavier blur for nav rails and headers where text
+     legibility matters most. */
+  .glass-nav {
+    background-color: rgba(12, 11, 19, 0.62);
+    border-color: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(26px) saturate(140%);
+    -webkit-backdrop-filter: blur(26px) saturate(140%);
+  }
+
+  /* For floating menus, dropdowns and modals that sit over arbitrary content. */
+  .glass-strong {
+    background-color: rgba(17, 15, 25, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 28px 80px -28px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Tabular figures for data-heavy numerics. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 /* ── Custom scrollbar ────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46; /* zinc-700 */
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b; /* zinc-600 */
+  background: rgba(255, 255, 255, 0.2);
 }
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
-
