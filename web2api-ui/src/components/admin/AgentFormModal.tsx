@@ -11,7 +11,7 @@ interface AgentFormModalProps {
 }
 
 const INPUT_CLS =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-violet-500/60";
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/50";
 
 export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProps) {
   const { createAgent, updateAgent, isSaving } = useAdminStore();
@@ -66,8 +66,8 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
         aria-modal="true"
         aria-labelledby="agent-form-title"
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
-          "rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/60",
+          "glass-strong fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
+          "rounded-2xl p-6",
         )}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -77,7 +77,7 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
           <button
             type="button"
             onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-200"
           >
             <X className="size-4" />
           </button>
@@ -125,14 +125,14 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
           </Field>
 
           {agent && (
-            <div className="flex items-center justify-between rounded-xl bg-zinc-800/40 px-4 py-3">
+            <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 ring-1 ring-inset ring-white/5">
               <span className="text-sm text-zinc-300">Active</span>
               <button
                 type="button"
                 onClick={() => setIsActive((v) => !v)}
                 className={cn(
                   "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                  isActive ? "bg-violet-600" : "bg-zinc-700",
+                  isActive ? "bg-gradient-to-r from-violet-500 to-fuchsia-500" : "bg-zinc-700",
                 )}
               >
                 <span
@@ -151,14 +151,14 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+              className="rounded-xl px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+              className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
             >
               {isSaving ? "Saving…" : agent ? "Save changes" : "Create"}
             </button>

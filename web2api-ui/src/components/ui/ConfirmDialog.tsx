@@ -45,14 +45,14 @@ export function ConfirmDialog({
         aria-labelledby="confirm-title"
         aria-describedby="confirm-desc"
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2",
-          "rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/60",
+          "glass-strong fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2",
+          "rounded-2xl p-6",
         )}
       >
         <h2 id="confirm-title" className="mb-1.5 text-sm font-semibold text-zinc-100">
           {title}
         </h2>
-        <p id="confirm-desc" className="mb-6 text-sm text-zinc-400">
+        <p id="confirm-desc" className="mb-6 text-sm leading-relaxed text-zinc-400">
           {description}
         </p>
 
@@ -60,14 +60,14 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-xl px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500"
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-950/50 transition-all hover:bg-red-500 active:scale-[0.98]"
           >
             {confirmLabel}
           </button>

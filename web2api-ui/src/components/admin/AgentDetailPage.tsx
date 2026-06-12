@@ -6,6 +6,7 @@ import { useAdminStore } from "@/stores/adminStore";
 import { getAgent } from "@/services/api";
 import { AgentFormModal } from "./AgentFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { gradientFor, initialsOf } from "@/lib/gradients";
 import { cn } from "@/lib/utils";
 import type { Agent } from "@/types/chat";
 
@@ -140,7 +141,7 @@ export function AgentDetailPage() {
   }
 
   return (
-    <>
+    <div className="mx-auto max-w-5xl">
       {/* Back link + actions */}
       <div className="mb-6 flex items-center justify-between">
         <Link
@@ -155,7 +156,7 @@ export function AgentDetailPage() {
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-zinc-100 active:scale-[0.98]"
           >
             <Pencil className="size-3.5" />
             Edit
@@ -164,7 +165,7 @@ export function AgentDetailPage() {
             <button
               type="button"
               onClick={() => setDeactivateOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-red-900/40 bg-red-950/20 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-950/40"
+              className="flex items-center gap-1.5 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-sm text-red-300 backdrop-blur-sm transition-all hover:bg-red-500/20 active:scale-[0.98]"
             >
               <PowerOff className="size-3.5" />
               Deactivate
@@ -174,44 +175,69 @@ export function AgentDetailPage() {
       </div>
 
       {/* Agent info card */}
-      <div className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-zinc-100">{agent.name}</h2>
-            {agent.description && (
-              <p className="mt-1 text-sm text-zinc-400">{agent.description}</p>
-            )}
+      <div className="glass relative mb-8 overflow-hidden rounded-2xl p-6">
+        <div
+          className={cn(
+            "absolute -right-10 -top-10 size-40 rounded-full bg-gradient-to-br opacity-15 blur-3xl",
+            gradientFor(agent.id),
+          )}
+        />
+        <div className="relative mb-4 flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div
+              className={cn(
+                "flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-bold text-white shadow-lg",
+                gradientFor(agent.id),
+              )}
+            >
+              {initialsOf(agent.name)}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-zinc-100">{agent.name}</h2>
+              {agent.description && (
+                <p className="mt-1 text-sm text-zinc-400">{agent.description}</p>
+              )}
+            </div>
           </div>
           <span
             className={cn(
-              "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
               agent.is_active
-                ? "bg-green-950/60 text-green-400 ring-green-900/40"
-                : "bg-zinc-800 text-zinc-500 ring-zinc-700/40",
+                ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/20"
+                : "bg-white/5 text-zinc-500 ring-white/10",
             )}
           >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                agent.is_active ? "bg-emerald-400" : "bg-zinc-500",
+              )}
+            />
             {agent.is_active ? "Active" : "Inactive"}
           </span>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+        <div className="relative mb-4 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
           <span>
-            Model: <span className="text-zinc-400">{agent.model}</span>
+            Model:{" "}
+            <span className="nums rounded-md bg-white/5 px-2 py-0.5 font-mono text-zinc-400 ring-1 ring-inset ring-white/10">
+              {agent.model}
+            </span>
           </span>
           <span>
             Updated:{" "}
-            <span className="text-zinc-400">
+            <span className="nums text-zinc-400">
               {new Date(agent.updated_at).toLocaleDateString()}
             </span>
           </span>
         </div>
 
         {agent.instructions && (
-          <div>
+          <div className="relative">
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Instructions
             </p>
-            <pre className="whitespace-pre-wrap rounded-xl bg-zinc-800/50 px-4 py-3 font-sans text-xs leading-relaxed text-zinc-300">
+            <pre className="whitespace-pre-wrap rounded-xl bg-white/5 px-4 py-3 font-sans text-xs leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5">
               {agent.instructions}
             </pre>
           </div>
@@ -233,8 +259,8 @@ export function AgentDetailPage() {
           className={cn(
             "mb-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-6 py-8 transition-colors",
             isUploading
-              ? "cursor-default border-violet-700/50 bg-violet-950/20"
-              : "border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/30",
+              ? "cursor-default border-violet-400/40 bg-violet-500/10"
+              : "border-white/10 hover:border-violet-400/30 hover:bg-white/5",
           )}
         >
           <input
@@ -265,10 +291,10 @@ export function AgentDetailPage() {
         {uploadFeedback && (
           <div
             className={cn(
-              "mb-4 rounded-xl px-4 py-3 text-sm",
+              "mb-4 rounded-xl px-4 py-3 text-sm ring-1 ring-inset",
               uploadFeedback.type === "success"
-                ? "bg-green-950/30 text-green-400 ring-1 ring-inset ring-green-900/40"
-                : "bg-red-950/30 text-red-400 ring-1 ring-inset ring-red-900/40",
+                ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/20"
+                : "bg-red-500/10 text-red-300 ring-red-400/20",
             )}
           >
             {uploadFeedback.message}
@@ -281,15 +307,15 @@ export function AgentDetailPage() {
             <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
           </div>
         ) : docs.length === 0 ? (
-          <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-800">
+          <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10">
             <p className="text-sm text-zinc-600">No documents yet — upload your first file above</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-            <div className="border-b border-zinc-800 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <div className="glass overflow-hidden rounded-2xl">
+            <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Documents ({docs.length})
             </div>
-            <ul className="divide-y divide-zinc-800">
+            <ul className="divide-y divide-white/5">
               {docs.map((doc) => (
                 <li key={doc.filename} className="flex items-center gap-3 px-4 py-3">
                   <FileText className="size-4 shrink-0 text-zinc-500" />
@@ -303,7 +329,7 @@ export function AgentDetailPage() {
                     type="button"
                     onClick={() => setDeleteDocFilename(doc.filename)}
                     aria-label={`Delete ${doc.filename}`}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-red-950/40 hover:text-red-400"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-red-500/20 hover:text-red-300"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
@@ -324,7 +350,7 @@ export function AgentDetailPage() {
               setAssignPanelOpen((v) => !v);
               setSelectedUserIds([]);
             }}
-            className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-zinc-100 active:scale-[0.98]"
           >
             <UserPlus className="size-3.5" />
             Add users
@@ -333,8 +359,8 @@ export function AgentDetailPage() {
 
         {/* Assign panel */}
         {assignPanelOpen && (
-          <div className="mb-4 overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900">
-            <div className="border-b border-zinc-800 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <div className="glass mb-4 overflow-hidden rounded-2xl">
+            <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Select users to assign
             </div>
             {(() => {
@@ -347,17 +373,17 @@ export function AgentDetailPage() {
                 </p>
               ) : (
                 <>
-                  <ul className="max-h-48 divide-y divide-zinc-800 overflow-y-auto">
+                  <ul className="max-h-48 divide-y divide-white/5 overflow-y-auto">
                     {unassigned.map((user) => {
                       const checked = selectedUserIds.includes(user.id);
                       return (
                         <li key={user.id}>
-                          <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-800/40">
+                          <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-white/5">
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleUserSelection(user.id)}
-                              className="size-4 rounded border-zinc-600 bg-zinc-800 accent-violet-500"
+                              className="size-4 rounded border-white/20 bg-white/10 accent-violet-500"
                             />
                             <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
                               {user.email}
@@ -368,14 +394,14 @@ export function AgentDetailPage() {
                       );
                     })}
                   </ul>
-                  <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-4 py-3">
+                  <div className="flex items-center justify-end gap-2 border-t border-white/5 px-4 py-3">
                     <button
                       type="button"
                       onClick={() => {
                         setAssignPanelOpen(false);
                         setSelectedUserIds([]);
                       }}
-                      className="rounded-xl px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+                      className="rounded-xl px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
                     >
                       Cancel
                     </button>
@@ -383,7 +409,7 @@ export function AgentDetailPage() {
                       type="button"
                       disabled={selectedUserIds.length === 0 || isAssigning}
                       onClick={() => void handleAssign()}
-                      className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
                     >
                       {isAssigning && (
                         <div className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -405,17 +431,25 @@ export function AgentDetailPage() {
             <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
           </div>
         ) : assignedUsers.length === 0 ? (
-          <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-800">
+          <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10">
             <p className="text-sm text-zinc-600">No users assigned yet</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-            <div className="border-b border-zinc-800 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          <div className="glass overflow-hidden rounded-2xl">
+            <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Assigned ({assignedUsers.length})
             </div>
-            <ul className="divide-y divide-zinc-800">
+            <ul className="divide-y divide-white/5">
               {assignedUsers.map((user) => (
                 <li key={user.id} className="flex items-center gap-3 px-4 py-3">
+                  <div
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-[10px] font-bold text-white shadow-md",
+                      gradientFor(user.email),
+                    )}
+                  >
+                    {initialsOf(user.email)}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-zinc-100">{user.email}</p>
                   </div>
@@ -423,7 +457,7 @@ export function AgentDetailPage() {
                     type="button"
                     onClick={() => setRemoveUserId(user.id)}
                     aria-label={`Remove ${user.email}`}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-red-950/40 hover:text-red-400"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-red-500/20 hover:text-red-300"
                   >
                     <UserX className="size-3.5" />
                   </button>
@@ -468,6 +502,6 @@ export function AgentDetailPage() {
         onConfirm={() => void handleRemoveUser()}
         onCancel={() => setRemoveUserId(null)}
       />
-    </>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getMe, checkAdmin } from '@/services/api'
+import { getMe, checkAdmin, postLogout } from '@/services/api'
 
 interface User {
   email: string
@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    if (token) void postLogout(token);
     localStorage.removeItem('auth_token')
     localStorage.removeItem('auth_email')
     setToken(null)

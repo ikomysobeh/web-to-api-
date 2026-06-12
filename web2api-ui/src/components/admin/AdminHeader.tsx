@@ -13,8 +13,8 @@ export function AdminHeader() {
     (pathname.startsWith("/admin/agents/") ? "Agent Details" : "Admin");
 
   return (
-    <header className="flex h-13 shrink-0 items-center border-b border-zinc-800/70 bg-zinc-950/80 px-6 backdrop-blur-sm">
-      <h1 className="text-sm font-semibold text-zinc-100">{title}</h1>
+    <header className="glass-nav z-30 flex h-13 shrink-0 items-center border-b border-white/5 px-6">
+      <h1 className="text-sm font-semibold tracking-tight text-zinc-100">{title}</h1>
     </header>
   );
 }

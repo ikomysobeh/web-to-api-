@@ -148,7 +148,7 @@ export default function AppShell() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-foreground">
+      <div className="app-bg flex h-screen w-screen overflow-hidden text-foreground">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
           <Sidebar

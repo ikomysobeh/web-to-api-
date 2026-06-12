@@ -45,10 +45,10 @@ function CollapsedSidebar({
   onNavigateAdmin: () => void;
 }) {
   return (
-    <aside className="flex h-full w-14 shrink-0 flex-col items-center overflow-hidden border-r border-zinc-800/70 bg-zinc-950">
+    <aside className="glass-nav flex h-full w-14 shrink-0 flex-col items-center overflow-hidden border-r border-white/5">
       {/* Logo mark */}
-      <div className="flex shrink-0 flex-col items-center border-b border-zinc-800/70 py-3">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-violet-600">
+      <div className="flex shrink-0 flex-col items-center border-b border-white/5 py-3">
+        <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
           <Sparkles className="size-3.5 text-white" />
         </div>
       </div>
@@ -66,7 +66,7 @@ function CollapsedSidebar({
 
       <div className="flex-1" />
 
-      <div className="w-full border-t border-zinc-800/70">
+      <div className="w-full border-t border-white/5">
         <SidebarFooter collapsed />
       </div>
     </aside>
@@ -152,12 +152,12 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-zinc-800/70 bg-zinc-950">
+    <aside className="glass-nav flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-white/5">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800/70 px-3 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-3 py-3">
         <div className="flex select-none items-center gap-2.5">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-violet-600">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
             <Sparkles className="size-3.5 text-white" />
           </div>
           <span className="text-sm font-semibold tracking-tight text-zinc-100">
@@ -171,7 +171,7 @@ export function Sidebar({
               type="button"
               onClick={onToggleCollapse}
               aria-label="Collapse sidebar"
-              className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300"
+              className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-300"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -185,7 +185,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onNewChat}
-          className="flex w-full items-center gap-2.5 rounded-xl bg-zinc-800/50 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+          className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-200 transition-all hover:bg-white/10 hover:text-white active:scale-[0.99]"
         >
           <MessageSquarePlus className="size-4 shrink-0" />
           New chat
@@ -193,7 +193,7 @@ export function Sidebar({
       </div>
 
       {/* ── Nav links ────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-zinc-800/50 px-3 pb-2">
+      <div className="shrink-0 border-b border-white/5 px-3 pb-2">
         <NavBtn
           icon={Search}
           label="Search"
@@ -211,8 +211,8 @@ export function Sidebar({
 
       {/* ── Search input ─────────────────────────────────────────────────── */}
       {showSearch && (
-        <div className="shrink-0 border-b border-zinc-800/50 px-3 py-2">
-          <div className="flex items-center gap-2 rounded-xl bg-zinc-800/50 px-3 py-2 ring-1 ring-zinc-700/40 focus-within:ring-violet-500/40">
+        <div className="shrink-0 border-b border-white/5 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-inset ring-white/10 focus-within:ring-violet-400/40">
             <Search className="size-3.5 shrink-0 text-zinc-500" />
             <input
               ref={searchInputRef}
@@ -270,9 +270,9 @@ export function Sidebar({
 
       {/* ── Clear all history ─────────────────────────────────────────────── */}
       {totalChats > 0 && (
-        <div className="shrink-0 border-t border-zinc-800/50 px-3 py-2">
+        <div className="shrink-0 border-t border-white/5 px-3 py-2">
           {confirmClear ? (
-            <div className="flex items-center justify-between rounded-xl bg-red-950/20 px-3 py-2 ring-1 ring-inset ring-red-900/30">
+            <div className="flex items-center justify-between rounded-xl bg-red-500/10 px-3 py-2 ring-1 ring-inset ring-red-400/20">
               <span className="text-xs text-red-400">
                 Delete {totalChats} conversation{totalChats !== 1 ? "s" : ""}?
               </span>
@@ -297,7 +297,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-600 transition-colors hover:bg-zinc-800/40 hover:text-zinc-400"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-400"
             >
               <Trash2 className="size-3 shrink-0" />
               Clear all history
@@ -307,7 +307,7 @@ export function Sidebar({
       )}
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-zinc-800/70">
+      <div className="shrink-0 border-t border-white/5">
         <SidebarFooter collapsed={false} />
       </div>
     </aside>
@@ -330,8 +330,8 @@ function NavBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-zinc-800/40",
-        active ? "bg-zinc-800/50 text-zinc-200" : "text-zinc-500 hover:text-zinc-300",
+        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-white/5",
+        active ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-300",
       )}
     >
       <Icon className="size-4 shrink-0" />

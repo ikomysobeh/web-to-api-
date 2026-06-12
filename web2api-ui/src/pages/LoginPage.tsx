@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { login as apiLogin } from '@/services/api'
 
@@ -32,25 +32,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-zinc-950">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
+    <div className="app-bg flex h-screen w-screen items-center justify-center p-4">
+      <div className="glass-strong w-full max-w-sm rounded-3xl p-8">
         <div className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-violet-600 flex items-center justify-center">
+          <div className="mb-4 flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
               <svg viewBox="0 0 24 24" fill="none" className="size-4 text-white" stroke="currentColor" strokeWidth="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
                 <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
                 <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-zinc-300">Lumina AI</span>
+            <span className="text-sm font-semibold text-zinc-200">Lumina AI</span>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-50">Sign in</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Sign in</h1>
           <p className="mt-1 text-sm text-zinc-400">Welcome back</p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2.5 text-sm text-red-400">
+          <div className="mb-4 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
             {error}
           </div>
         )}
@@ -66,7 +66,7 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
               placeholder="you@example.com"
             />
           </div>
@@ -81,7 +81,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
               placeholder="••••••••"
             />
           </div>
@@ -89,18 +89,12 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-1 w-full rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-zinc-500">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-violet-400 hover:text-violet-300 hover:underline">
-            Register
-          </Link>
-        </p>
       </div>
     </div>
   )

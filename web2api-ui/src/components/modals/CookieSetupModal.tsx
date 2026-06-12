@@ -31,18 +31,18 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
   useExtensionCookies(handleCookies)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-8 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="glass-strong w-full max-w-md rounded-2xl p-8">
         {/* Header */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-violet-600/20 ring-1 ring-violet-500/30">
-            <svg viewBox="0 0 24 24" fill="none" className="size-7 text-violet-400" stroke="currentColor" strokeWidth="1.5">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 ring-1 ring-inset ring-white/10">
+            <svg viewBox="0 0 24 24" fill="none" className="size-7 text-violet-300" stroke="currentColor" strokeWidth="1.5">
               <path d="M13.5 10.5L21 3m0 0h-6m6 0v6" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10.5 13.5L3 21m0 0h6m-6 0v-6" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-zinc-50">Connect your Gemini account</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-50">Connect your Gemini account</h2>
           <p className="mt-1.5 text-sm text-zinc-400">
             Lumina AI needs your Gemini session to work. Follow the steps below.
           </p>
@@ -67,7 +67,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
             { n: 4, text: 'Click', highlight: '"Capture & Send"', after: 'in the popup' },
           ].map((step) => (
             <li key={step.n} className="flex items-start gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-xs font-bold text-violet-400 ring-1 ring-violet-500/30">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 text-xs font-bold text-violet-300 ring-1 ring-inset ring-white/10">
                 {step.n}
               </span>
               <p className="text-sm text-zinc-300">
@@ -81,7 +81,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
 
         {/* Status */}
         {status === 'waiting' && (
-          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
             <span className="relative flex size-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
               <span className="relative inline-flex size-2.5 rounded-full bg-violet-500" />
@@ -91,7 +91,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
         )}
 
         {status === 'saving' && (
-          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
             <svg className="size-4 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -101,8 +101,8 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
         )}
 
         {status === 'error' && (
-          <div className="rounded-xl border border-red-900/50 bg-red-950/40 px-4 py-3">
-            <p className="text-sm text-red-400">{errorMsg}</p>
+          <div className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3">
+            <p className="text-sm text-red-300">{errorMsg}</p>
             <button
               onClick={() => setStatus('waiting')}
               className="mt-2 text-xs text-red-300 underline hover:text-red-200"

@@ -3,6 +3,8 @@ import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUs
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
+const EXT_BASE = "https://authtesting.lcportal.cloud/api/v1";
+
 function authHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
     Accept: "application/json",
@@ -22,38 +24,69 @@ export interface AuthResponse {
   email: string;
 }
 
-export async function register(
-  email: string,
-  password: string,
-): Promise<AuthResponse> {
-  const res = await fetch(`${BASE}/auth/register`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) throw res;
-  return res.json();
+function getOrCreateDeviceId(): string {
+  const key = "lc_device_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+// Unwrap a response that may or may not be nested under a "data" key.
+function unwrap(raw: Record<string, unknown>): Record<string, unknown> {
+  const nested = raw.data;
+  return (nested && typeof nested === "object" && !Array.isArray(nested))
+    ? (nested as Record<string, unknown>)
+    : raw;
 }
 
 export async function login(
   email: string,
   password: string,
 ): Promise<AuthResponse> {
-  const res = await fetch(`${BASE}/auth/login`, {
+  const res = await fetch(`${EXT_BASE}/auth/login`, {
     method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ email, password }),
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      client_type: "web",
+      device: {
+        app_version: "1.0.0",
+        device_id: getOrCreateDeviceId(),
+        model: "Browser",
+        os_version: typeof navigator !== "undefined" ? navigator.platform : "web",
+        platform: "web",
+      },
+    }),
   });
   if (!res.ok) throw res;
-  return res.json();
+  const raw = await res.json() as Record<string, unknown>;
+  const d = unwrap(raw);
+  const token = (d.access_token ?? d.token ?? "") as string;
+  const userObj = d.user as Record<string, unknown> | undefined;
+  const resolvedEmail = (userObj?.email ?? d.email ?? email) as string;
+  return { success: true, token, email: resolvedEmail };
 }
 
 export async function getMe(token: string): Promise<{ email: string }> {
-  const res = await fetch(`${BASE}/auth/me`, {
+  const res = await fetch(`${EXT_BASE}/auth/me`, {
     headers: authHeaders(token),
   });
   if (!res.ok) throw res;
-  return res.json();
+  const raw = await res.json() as Record<string, unknown>;
+  const d = unwrap(raw);
+  const userObj = d.user as Record<string, unknown> | undefined;
+  return { email: (userObj?.email ?? d.email ?? "") as string };
+}
+
+export async function postLogout(token: string): Promise<void> {
+  await fetch(`${EXT_BASE}/auth/logout`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -291,26 +324,29 @@ export async function updateUserProfile(
   return res.json();
 }
 
-export async function postLogout(token: string): Promise<void> {
-  await fetch(`${BASE}/api/user/logout`, {
-    method: "POST",
-    headers: authHeaders(token),
-  });
-  // fire-and-forget — server is stateless, always clear local state
+// ---------------------------------------------------------------------------
+// Admin — Auth check
+// ---------------------------------------------------------------------------
+
+export async function checkAdmin(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${EXT_BASE}/auth/me`, {
+      headers: authHeaders(token),
+    });
+    if (!res.ok) return false;
+    const raw = await res.json() as Record<string, unknown>;
+    const d = unwrap(raw);
+    const userObj = d.user as Record<string, unknown> | undefined;
+    const role = (userObj?.role ?? d.role ?? "") as string;
+    return role.toLowerCase() === "admin";
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Admin — Agents
 // ---------------------------------------------------------------------------
-
-export async function checkAdmin(token: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${BASE}/admin/agents`, { headers: authHeaders(token) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 export async function listAgents(token: string): Promise<{ agents: Agent[] }> {
   const res = await fetch(`${BASE}/admin/agents`, { headers: authHeaders(token) });
@@ -412,9 +448,12 @@ export async function deleteAgentDocument(
 // ---------------------------------------------------------------------------
 
 export async function listUsers(token: string): Promise<{ users: AdminUser[] }> {
-  const res = await fetch(`${BASE}/admin/users`, { headers: authHeaders(token) });
+  const res = await fetch(`${EXT_BASE}/users`, {
+    headers: authHeaders(token),
+  });
   if (!res.ok) throw res;
-  return res.json();
+  const data = await res.json() as { data: AdminUser[] };
+  return { users: data.data };
 }
 
 // ---------------------------------------------------------------------------
@@ -479,4 +518,3 @@ export async function getMyAgent(
   if (!res.ok) throw res;
   return res.json();
 }
-
