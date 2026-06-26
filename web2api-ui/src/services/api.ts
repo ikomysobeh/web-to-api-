@@ -3,7 +3,6 @@ import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUs
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
-const EXT_BASE = "https://authtesting.lcportal.cloud/api/v1";
 
 function authHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
@@ -24,15 +23,6 @@ export interface AuthResponse {
   email: string;
 }
 
-function getOrCreateDeviceId(): string {
-  const key = "lc_device_id";
-  let id = localStorage.getItem(key);
-  if (!id) {
-    id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(key, id);
-  }
-  return id;
-}
 
 // Unwrap a response that may or may not be nested under a "data" key.
 function unwrap(raw: Record<string, unknown>): Record<string, unknown> {
@@ -46,47 +36,43 @@ export async function login(
   email: string,
   password: string,
 ): Promise<AuthResponse> {
-  const res = await fetch(`${EXT_BASE}/auth/login`, {
+  // Login goes through the FastAPI bridge, which validates against PizzaSys
+  // internally and returns its own JWT. Do NOT call PizzaSys directly here —
+  // the bridge token (JWT) is what all BASE/* endpoints expect.
+  const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      email,
-      password,
-      client_type: "web",
-      device: {
-        app_version: "1.0.0",
-        device_id: getOrCreateDeviceId(),
-        model: "Browser",
-        os_version: typeof navigator !== "undefined" ? navigator.platform : "web",
-        platform: "web",
-      },
-    }),
+    body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw res;
   const raw = await res.json() as Record<string, unknown>;
   const d = unwrap(raw);
-  const token = (d.access_token ?? d.token ?? "") as string;
-  const userObj = d.user as Record<string, unknown> | undefined;
-  const resolvedEmail = (userObj?.email ?? d.email ?? email) as string;
+  const token = (d.token ?? d.access_token ?? "") as string;
+  const resolvedEmail = (d.email ?? email) as string;
   return { success: true, token, email: resolvedEmail };
 }
 
 export async function getMe(token: string): Promise<{ email: string }> {
-  const res = await fetch(`${EXT_BASE}/auth/me`, {
+  const res = await fetch(`${BASE}/auth/me`, {
     headers: authHeaders(token),
   });
   if (!res.ok) throw res;
   const raw = await res.json() as Record<string, unknown>;
   const d = unwrap(raw);
-  const userObj = d.user as Record<string, unknown> | undefined;
-  return { email: (userObj?.email ?? d.email ?? "") as string };
+  return { email: (d.email ?? "") as string };
 }
 
 export async function postLogout(token: string): Promise<void> {
-  await fetch(`${EXT_BASE}/auth/logout`, {
-    method: "POST",
-    headers: authHeaders(token),
-  });
+  // JWT is stateless — just drop the token on the client side.
+  // Fire-and-forget to the bridge in case it has a session record.
+  try {
+    await fetch(`${BASE}/auth/logout`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+  } catch {
+    // ignore — logout always succeeds on the client
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +98,15 @@ export async function saveCookies(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ psid, psidts }),
+  });
+  if (!res.ok) throw res;
+}
+
+// Disconnect Gemini — deletes the stored cookies and drops the WebAI client.
+export async function disconnectCookies(token: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/cookies`, {
+    method: "DELETE",
+    headers: authHeaders(token),
   });
   if (!res.ok) throw res;
 }
@@ -330,7 +325,7 @@ export async function updateUserProfile(
 
 export async function checkAdmin(token: string): Promise<boolean> {
   try {
-    const res = await fetch(`${EXT_BASE}/auth/me`, {
+    const res = await fetch(`${BASE}/auth/me`, {
       headers: authHeaders(token),
     });
     if (!res.ok) return false;
@@ -448,12 +443,23 @@ export async function deleteAgentDocument(
 // ---------------------------------------------------------------------------
 
 export async function listUsers(token: string): Promise<{ users: AdminUser[] }> {
-  const res = await fetch(`${EXT_BASE}/users`, {
+  const res = await fetch(`${BASE}/admin/bridge/users`, {
     headers: authHeaders(token),
   });
   if (!res.ok) throw res;
-  const data = await res.json() as { data: AdminUser[] };
-  return { users: data.data };
+  // PizzaSys returns paginated: { success, data: { data: [...users], current_page, ... } }
+  const raw = await res.json() as {
+    data: {
+      data: Array<{ id: number; name: string; email: string; roles?: Array<{ name: string }> }>;
+    };
+  };
+  const users: AdminUser[] = (raw.data?.data ?? []).map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.roles?.[0]?.name ?? "user",
+  }));
+  return { users };
 }
 
 // ---------------------------------------------------------------------------

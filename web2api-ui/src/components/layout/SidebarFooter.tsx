@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useConversationStore } from "@/stores/conversationStore";
-import { postLogout } from "@/services/api";
-import { SettingsModal } from "@/components/modals/SettingsModal";
+import { disconnectCookies, postLogout } from "@/services/api";
 import { cn } from "@/lib/utils";
 
 interface SidebarFooterProps {
@@ -17,7 +16,6 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
   const resetForLogout = useConversationStore((s) => s.resetForLogout);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const email = user?.email ?? "";
@@ -34,27 +32,20 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
 
   async function handleLogout() {
     setDropdownOpen(false);
-    if (token) void postLogout(token).catch(() => {});
+    if (token) {
+      // Disconnect Gemini (delete cookies + drop WebAI client) before logging
+      // out, while the token is still valid. Awaited so it completes first;
+      // errors are swallowed so logout always proceeds.
+      await disconnectCookies(token).catch(() => {});
+      void postLogout(token).catch(() => {});
+    }
     resetForLogout();
     logout();
     navigate("/login");
   }
 
-  function handleOpenSettings() {
-    setDropdownOpen(false);
-    setSettingsOpen(true);
-  }
-
   const dropdown = (
     <div className="glass-strong absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-xl py-1">
-      <button
-        type="button"
-        onClick={handleOpenSettings}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
-      >
-        <Settings className="size-4 shrink-0 text-zinc-500" />
-        Settings
-      </button>
       <button
         type="button"
         onClick={handleLogout}
@@ -69,46 +60,39 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
   // ── Collapsed: click avatar to open dropdown ──────────────────────────────
   if (collapsed) {
     return (
-      <>
-        <div ref={wrapperRef} className="relative flex flex-col items-center py-2">
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
-            aria-label="Account menu"
-            className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40 transition-transform hover:scale-105"
-          >
-            {initials}
-          </button>
-          {dropdownOpen && dropdown}
-        </div>
-        {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-      </>
+      <div ref={wrapperRef} className="relative flex flex-col items-center py-2">
+        <button
+          type="button"
+          onClick={() => setDropdownOpen((v) => !v)}
+          aria-label="Account menu"
+          className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40 transition-transform hover:scale-105"
+        >
+          {initials}
+        </button>
+        {dropdownOpen && dropdown}
+      </div>
     );
   }
 
   // ── Expanded ──────────────────────────────────────────────────────────────
   return (
-    <>
-      <div ref={wrapperRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setDropdownOpen((v) => !v)}
-          aria-label="Account menu"
-          className={cn(
-            "flex w-full items-center gap-2.5 px-3 py-3 transition-colors hover:bg-white/5",
-            dropdownOpen && "bg-white/5",
-          )}
-        >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40">
-            {initials}
-          </div>
-          <p className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">{email}</p>
-        </button>
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setDropdownOpen((v) => !v)}
+        aria-label="Account menu"
+        className={cn(
+          "flex w-full items-center gap-2.5 px-3 py-3 transition-colors hover:bg-white/5",
+          dropdownOpen && "bg-white/5",
+        )}
+      >
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40">
+          {initials}
+        </div>
+        <p className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">{email}</p>
+      </button>
 
-        {dropdownOpen && dropdown}
-      </div>
-
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-    </>
+      {dropdownOpen && dropdown}
+    </div>
   );
 }
