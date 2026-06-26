@@ -77,14 +77,21 @@ async def startup():
     logger.info("NATS sync task started")
 
 # CORS — like config/cors.php in Laravel
+# Local dev origins are always allowed. Add production origins via the
+# CORS_ORIGINS env var (comma-separated). Example in .env:
+#   CORS_ORIGINS=http://2.25.70.122:3000,https://app.yourdomain.com
+_default_cors_origins = [
+    "http://127.0.0.1:3000",  # frontend via Docker (IP)
+    "http://localhost:3000",   # frontend via Docker (hostname)
+    "http://127.0.0.1:5173",  # Vite dev server (IP)
+    "http://localhost:5173",   # Vite dev server (hostname)
+]
+_extra_cors_origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:3000",  # frontend via Docker (IP)
-        "http://localhost:3000",   # frontend via Docker (hostname)
-        "http://127.0.0.1:5173",  # Vite dev server (IP)
-        "http://localhost:5173",   # Vite dev server (hostname)
-    ],
+    allow_origins=_default_cors_origins + _extra_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, FileText, Pencil, PowerOff, Trash2, Upload, UserPlus, UserX } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Pencil, PowerOff, Trash2, Upload, UserPlus, UserX } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdminStore } from "@/stores/adminStore";
-import { getAgent } from "@/services/api";
+import { getAgent, listUsers } from "@/services/api";
+import type { AdminUser } from "@/types/chat";
 import { AgentFormModal } from "./AgentFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { gradientFor, initialsOf } from "@/lib/gradients";
@@ -30,8 +31,6 @@ export function AgentDetailPage() {
     loadAgentUsers,
     assignAgentUsers,
     removeAgentUser,
-    users,
-    loadUsers,
   } = useAdminStore();
 
   // Prefer agent from store (stays live after edits); fall back to fetched copy
@@ -56,6 +55,12 @@ export function AgentDetailPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [removeUserId, setRemoveUserId] = useState<number | null>(null);
 
+  // Paginated user list for assign panel
+  const [availableUsers, setAvailableUsers] = useState<AdminUser[]>([]);
+  const [userPage, setUserPage] = useState(1);
+  const [userLastPage, setUserLastPage] = useState(1);
+  const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
+
   useEffect(() => {
     if (!agentId || !token) return;
     if (!agentFromStore) {
@@ -67,9 +72,19 @@ export function AgentDetailPage() {
     }
     void loadDocuments(agentId);
     void loadAgentUsers(agentId);
-    void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, token]);
+
+  useEffect(() => {
+    if (!assignPanelOpen || !token) return;
+    setIsLoadingAvailable(true);
+    listUsers(token, userPage, 10)
+      .then((data) => {
+        setAvailableUsers(data.users);
+        setUserLastPage(data.lastPage);
+      })
+      .finally(() => setIsLoadingAvailable(false));
+  }, [assignPanelOpen, userPage, token]);
 
   async function handleFile(file: File) {
     if (!agentId) return;
@@ -344,6 +359,7 @@ export function AgentDetailPage() {
             onClick={() => {
               setAssignPanelOpen((v) => !v);
               setSelectedUserIds([]);
+              setUserPage(1);
             }}
             className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-zinc-100 active:scale-[0.98]"
           >
@@ -358,65 +374,94 @@ export function AgentDetailPage() {
             <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Select users to assign
             </div>
-            {(() => {
-              const unassigned = users.filter(
-                (u) => !assignedUsers.some((a) => a.id === u.id),
-              );
-              return unassigned.length === 0 ? (
-                <p className="px-4 py-4 text-sm text-zinc-500">
-                  All users are already assigned to this agent.
-                </p>
-              ) : (
-                <>
-                  <ul className="max-h-48 divide-y divide-white/5 overflow-y-auto">
-                    {unassigned.map((user) => {
-                      const checked = selectedUserIds.includes(user.id);
-                      return (
-                        <li key={user.id}>
-                          <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-white/5">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleUserSelection(user.id)}
-                              className="size-4 rounded border-white/20 bg-white/10 accent-violet-500"
-                            />
-                            <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
-                              {user.email}
-                            </span>
-                            <span className="shrink-0 text-xs text-zinc-500">{user.role}</span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="flex items-center justify-end gap-2 border-t border-white/5 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAssignPanelOpen(false);
-                        setSelectedUserIds([]);
-                      }}
-                      className="rounded-xl px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedUserIds.length === 0 || isAssigning}
-                      onClick={() => void handleAssign()}
-                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
-                    >
-                      {isAssigning && (
-                        <div className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      )}
-                      {selectedUserIds.length > 0
-                        ? `Assign (${selectedUserIds.length})`
-                        : "Assign"}
-                    </button>
+            {isLoadingAvailable ? (
+              <div className="flex h-20 items-center justify-center">
+                <div className="size-4 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+              </div>
+            ) : (
+              <>
+                <ul className="divide-y divide-white/5">
+                  {availableUsers.map((user) => {
+                    const alreadyAssigned = assignedUsers.some((a) => a.id === user.id);
+                    const checked = selectedUserIds.includes(user.id);
+                    return (
+                      <li key={user.id}>
+                        <label
+                          className={cn(
+                            "flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-white/5",
+                            alreadyAssigned && "pointer-events-none opacity-40",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={alreadyAssigned}
+                            onChange={() => toggleUserSelection(user.id)}
+                            className="size-4 rounded border-white/20 bg-white/10 accent-violet-500"
+                          />
+                          <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
+                            {user.email}
+                          </span>
+                          <span className="shrink-0 text-xs text-zinc-500">
+                            {alreadyAssigned ? "assigned" : user.role}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Page controls */}
+                {userLastPage > 1 && (
+                  <div className="flex items-center justify-between border-t border-white/5 px-4 py-2">
+                    <span className="text-xs text-zinc-600">Page {userPage} / {userLastPage}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={userPage <= 1}
+                        onClick={() => setUserPage((p) => p - 1)}
+                        className="flex size-6 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/10 disabled:opacity-30"
+                      >
+                        <ChevronLeft className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={userPage >= userLastPage}
+                        onClick={() => setUserPage((p) => p + 1)}
+                        className="flex size-6 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/10 disabled:opacity-30"
+                      >
+                        <ChevronRight className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </>
-              );
-            })()}
+                )}
+
+                <div className="flex items-center justify-end gap-2 border-t border-white/5 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAssignPanelOpen(false);
+                      setSelectedUserIds([]);
+                      setUserPage(1);
+                    }}
+                    className="rounded-xl px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedUserIds.length === 0 || isAssigning}
+                    onClick={() => void handleAssign()}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isAssigning && (
+                      <div className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    )}
+                    {selectedUserIds.length > 0 ? `Assign (${selectedUserIds.length})` : "Assign"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
