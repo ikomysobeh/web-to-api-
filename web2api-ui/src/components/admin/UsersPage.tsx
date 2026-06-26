@@ -20,11 +20,11 @@ export function UsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="mb-6 flex items-center gap-3.5">
-        <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-900/30">
-          <UsersIcon className="size-5 text-white" />
+    <div>
+      {/* ── Header band ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 border-b border-white/5 px-6 py-6 sm:px-8">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-white/5 text-sky-300">
+          <UsersIcon className="size-5" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">Users</h2>
@@ -35,9 +35,9 @@ export function UsersPage() {
       </div>
 
       {users.length === 0 ? (
-        <div className="glass flex h-48 flex-col items-center justify-center gap-3 rounded-2xl">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 to-blue-500/20 ring-1 ring-inset ring-white/10">
-            <UsersIcon className="size-6 text-sky-300" />
+        <div className="flex h-48 flex-col items-center justify-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/5 text-sky-300">
+            <UsersIcon className="size-6" />
           </div>
           <p className="text-sm text-zinc-500">No users found</p>
         </div>
@@ -74,28 +74,27 @@ export function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-                          isAdmin
-                            ? "bg-violet-500/15 text-violet-300 ring-violet-400/20"
-                            : "bg-white/5 text-zinc-400 ring-white/10",
-                        )}
-                      >
-                        {isAdmin && <Shield className="size-3" />}
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="nums px-4 py-3 text-xs text-zinc-500">
-                      {user.id}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  <td className="px-6 py-3">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                        isAdmin
+                          ? "bg-violet-500/10 text-violet-300 ring-violet-400/20"
+                          : "bg-white/5 text-zinc-400 ring-white/10",
+                      )}
+                    >
+                      {isAdmin && <Shield className="size-3" />}
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="nums px-6 py-3 text-xs text-zinc-500 sm:pr-8">
+                    {user.id}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { login as apiLogin } from '@/services/api'
 
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -32,21 +34,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="app-bg flex h-screen w-screen items-center justify-center p-4">
-      <div className="glass-strong w-full max-w-sm rounded-3xl p-8">
-        <div className="mb-6">
-          <div className="mb-4 flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
-              <svg viewBox="0 0 24 24" fill="none" className="size-4 text-white" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
-                <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
-                <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-zinc-200">Lumina AI</span>
+    <div className="app-bg relative flex h-screen w-screen items-center justify-center overflow-hidden p-4">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 size-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 blur-3xl" />
+
+      <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl">
+        {/* Brand */}
+        <div className="mb-7 flex flex-col items-center text-center">
+          <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
+            <svg viewBox="0 0 24 24" fill="none" className="size-6 text-white" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
+              <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
+              <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
+            </svg>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Sign in</h1>
-          <p className="mt-1 text-sm text-zinc-400">Welcome back</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Welcome back</h1>
+          <p className="mt-1 text-sm text-zinc-400">Sign in to your Lumina AI account</p>
         </div>
 
         {error && (
@@ -56,45 +59,64 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Email */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Email
             </label>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
-              placeholder="you@example.com"
-            />
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+                placeholder="you@example.com"
+              />
+            </div>
           </div>
 
+          {/* Password */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Password
             </label>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-10 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+                className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 w-full rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
+            {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
       </div>
     </div>
   )
