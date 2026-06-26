@@ -16,7 +16,7 @@ import logging
 from dotenv import load_dotenv
 
 from database import init_db, get_connection
-from auth import hash_password, verify_password, create_token, get_current_user, require_admin, validate_with_laravel
+from auth import hash_password, verify_password, create_token, get_current_user, require_admin, require_permission, validate_with_laravel
 from nats_sync import start_nats_sync, get_nats_status
 from vector import ingest_document, search_chunks, extract_text
 from services.cookie_service import save_cookies, load_cookies, has_cookies, delete_cookies
@@ -316,57 +316,31 @@ def register(data: RegisterInput):
 @app.post("/auth/login")
 async def login(data: LoginInput):
     """
-    Login. Validates via Laravel auth API first.
-    Falls back to local bcrypt validation if LARAVEL_AUTH_URL is not set.
-    Returns JWT with role included.
+    Proxy login request to pizzasys and return its Sanctum token directly.
+    The frontend stores and uses this Sanctum token for all subsequent requests
+    (both to pizzasys and to this bridge).
     """
-    logger.info(f"Login attempt for email: {data.email}")
+    from auth import LARAVEL_AUTH_URL
+    if not LARAVEL_AUTH_URL:
+        raise HTTPException(status_code=503, detail="Auth service not configured (LARAVEL_AUTH_URL missing)")
 
-    # Try Laravel first
-    laravel_user = await validate_with_laravel(data.email, data.password)
-
-    if laravel_user:
-        # Find the user in our local DB (synced via NATS)
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, email, role FROM users WHERE external_id = %s",
-            (laravel_user["user_id"],)
-        )
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        if not row:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found in local database — NATS sync may be delayed. Try again in a moment."
+    logger.info(f"Login proxy for: {data.email}")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                LARAVEL_AUTH_URL,
+                json={"email": data.email, "password": data.password},
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
             )
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Auth service unreachable")
 
-        token = create_token(row["id"], row["email"], row["role"])
-        return {"success": True, "token": token, "email": row["email"], "role": row["role"]}
-
-    # Fallback: local bcrypt validation (for users created before NATS sync)
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, email, password_hash, role FROM users WHERE email = %s",
-        (data.email.lower().strip(),)
-    )
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if not row or row["password_hash"] == "EXTERNAL_AUTH":
-        logger.warning(f"Login failed for email: {data.email}")
+    if resp.status_code == 422:
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    if not verify_password(data.password, row["password_hash"]):
-        logger.warning(f"Login failed for email: {data.email}")
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not resp.is_success:
+        raise HTTPException(status_code=resp.status_code, detail="Auth service error")
 
-    token = create_token(row["id"], row["email"], row["role"])
-    logger.info(f"Login successful for email: {data.email}")
-    return {"success": True, "token": token, "email": row["email"], "role": row["role"]}
+    return resp.json()
 
 
 # GET /auth/me
@@ -555,12 +529,16 @@ async def chat(data: ChatMessage, user = Depends(get_current_user)):
 
         # Vector search — get top 5 relevant chunks
         relevant_chunks = await search_chunks(data.agent_id, data.message, limit=5)
+        logger.info(f"Chat context: agent={data.agent_id}, chunks_injected={len(relevant_chunks)}")
+        if not relevant_chunks:
+            logger.warning("Chat context: NO document chunks found — AI will answer from general knowledge only")
 
         # Build system prompt
         system_parts = [agent_row["instructions"]]
         if relevant_chunks:
             system_parts.append("\n\n--- Relevant Knowledge ---")
             for i, chunk in enumerate(relevant_chunks, 1):
+                logger.info(f"  chunk[{i}]: {chunk[:80]}...")
                 system_parts.append(f"[{i}] {chunk}")
 
         system_prompt = "\n".join(system_parts)
@@ -778,11 +756,48 @@ async def send_message(
     # Stream response from WebAI-to-API (similar to existing /api/chat)
     model = data.model or conversation["model"]
     user_id_str = str(user["user_id"])
-    
+    messages = [{"role": "user", "content": data.message}]
+
+    # ── Agent injection + vector search ──────────────────────────────
+    logger.info(f"send_message: user={user['user_id']} agent_id={data.agent_id!r} msg='{data.message[:60]}'")
+    if data.agent_id:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT a.instructions, a.model
+            FROM agents a
+            JOIN user_agents ua ON ua.agent_id = a.id
+            WHERE a.id = %s AND ua.user_id = %s AND a.is_active = true
+        """, (data.agent_id, user["user_id"]))
+        agent_row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not agent_row:
+            logger.warning(f"send_message: agent {data.agent_id} not found or not assigned to user {user['user_id']}")
+        else:
+            model = agent_row["model"]
+            relevant_chunks = await search_chunks(data.agent_id, data.message, limit=5)
+            logger.info(f"send_message: chunks_injected={len(relevant_chunks)}")
+            if not relevant_chunks:
+                logger.warning("send_message: NO chunks found — AI answers from general knowledge only")
+
+            system_parts = [agent_row["instructions"]]
+            if relevant_chunks:
+                system_parts.append("\n\n--- Relevant Knowledge ---")
+                for i, chunk in enumerate(relevant_chunks, 1):
+                    logger.info(f"  chunk[{i}]: {chunk[:100]}...")
+                    system_parts.append(f"[{i}] {chunk}")
+
+            messages = [{"role": "system", "content": "\n".join(system_parts)}] + messages
+    else:
+        logger.info("send_message: no agent_id — sending without document context")
+    # ─────────────────────────────────────────────────────────────────
+
     request_body = {
         "model": model,
         "stream": True,
-        "messages": [{"role": "user", "content": data.message}]
+        "messages": messages
     }
     
     async def stream_from_webai():
@@ -1398,7 +1413,7 @@ def admin_list_users(user = Depends(require_admin)):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, email, role, external_id, synced_at, created_at
+        SELECT id, email, role, synced_at, created_at
         FROM users ORDER BY created_at DESC
     """)
     rows = cursor.fetchall()
@@ -1408,13 +1423,20 @@ def admin_list_users(user = Depends(require_admin)):
 
 
 class RoleUpdate(BaseModel):
-    role: str   # "admin" or "user"
+    role: str
 
 @app.put("/admin/users/{target_user_id}/role")
 def admin_update_user_role(target_user_id: int, data: RoleUpdate, user = Depends(require_admin)):
-    """Change a user's role. Allowed values: 'admin', 'user'."""
-    if data.role not in ("admin", "user"):
-        raise HTTPException(status_code=400, detail="Role must be 'admin' or 'user'")
+    """
+    Roles are managed in pizzasys, not here.
+    This endpoint now returns a clear error so callers know where to go.
+    """
+    raise HTTPException(
+        status_code=400,
+        detail="Roles are managed in pizzasys. Use POST /api/v1/roles/assign in pizzasys to change user roles."
+    )
+
+    # Dead code kept for reference — remove once frontend is updated
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
