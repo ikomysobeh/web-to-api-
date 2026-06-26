@@ -9,8 +9,13 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_please}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Published on host port 5433 (not 5432) to avoid clashing with a native
+    # PostgreSQL already running on the host. Bound to localhost only — not
+    # exposed to the internet. Containers reach the DB internally via the "db"
+    # hostname on port 5432 regardless of this mapping. A local DB GUI connects
+    # to localhost:5433. Remove this block entirely if you don't need GUI access.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-webai_user} -d webai_bridge"]
       interval: 10s
@@ -20,17 +25,26 @@ services:
     networks:
       - webai_network
 
-  # NATS Message Broker
+  # NATS Message Broker (JetStream enabled)
   nats:
     image: nats:2.10-alpine
     container_name: webai-nats
     ports:
       - "4222:4222"    # client connections
-      - "8222:8222"    # HTTP monitoring
-    command: ["--jetstream", "--http_port", "8222"]
+      - "8222:8222"    # HTTP monitoring — open http://localhost:8222 to monitor
+    # Auth token comes from .env (NATS_TOKEN). Must match the bridge and pizzasys.
+    # Defaults to "localdev" for local dev — set a strong NATS_TOKEN in production.
+    command: ["--jetstream", "--store_dir=/data", "--http_port", "8222", "--auth", "${NATS_TOKEN:-localdev}"]
+    volumes:
+      - nats_data:/data   # persist JetStream messages across restarts
     restart: unless-stopped
     networks:
       - webai_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # WebAI-to-API
   webai:
@@ -47,9 +61,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    depends_on:
-      db:
-        condition: service_healthy
+    # WebAI-to-API uses its own SQLite store — no dependency on Postgres.
     restart: unless-stopped
     networks:
       - webai_network
@@ -60,6 +72,8 @@ services:
       context: ./webai-bridge
       dockerfile: Dockerfile
     container_name: webai-bridge
+    extra_hosts:
+      - "host-gateway:host-gateway"
     environment:
       DATABASE_URL: postgresql://${DB_USER:-webai_user}:${DB_PASSWORD:-change_me_please}@db:5432/webai_bridge
       WEBAI_URL: http://webai:6969
@@ -68,8 +82,19 @@ services:
       COOKIE_ENCRYPTION_KEY: ${COOKIE_ENCRYPTION_KEY}
       NATS_URL: nats://nats:4222
       NATS_TOKEN: ${NATS_TOKEN:-}
+      NATS_USER: ${NATS_USER:-}
+      NATS_PASS: ${NATS_PASS:-}
+      NATS_AUTH_STREAM: ${NATS_AUTH_STREAM:-AUTH_EVENTS}
+      NATS_AUTH_DURABLE: ${NATS_AUTH_DURABLE:-WEBAI_BRIDGE_AUTH_CONSUMER}
+      DEV_MODE: ${DEV_MODE:-0}
       LARAVEL_AUTH_URL: ${LARAVEL_AUTH_URL:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AUTH_SERVER_BASE_URL: ${AUTH_SERVER_BASE_URL:-http://host-gateway:8001}
+      AUTH_SERVER_VERIFY_PATH: /api/v1/auth/token-verify
+      AUTH_SERVER_SERVICE_NAME: webai-bridge
+      AUTH_SERVER_CALL_TOKEN: ${AUTH_SERVER_CALL_TOKEN:-}
+      # Ollama runs on the VPS/host; containers reach it via host-gateway.
+      OLLAMA_URL: ${OLLAMA_URL:-http://host-gateway:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
     ports:
       - "8000:8000"
     healthcheck:
@@ -83,7 +108,7 @@ services:
       webai:
         condition: service_healthy
       nats:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - webai_network
@@ -93,8 +118,11 @@ services:
     build:
       context: ./web2api-ui
       dockerfile: Dockerfile
+      # Build-time args baked into the JS bundle. Set the public URLs in .env and
+      # rebuild (docker compose up -d --build frontend) for changes to take effect.
       args:
-        VITE_API_URL: http://localhost:8000
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_AUTH_URL: ${VITE_AUTH_URL:-http://localhost:8001}
     ports:
       - "3000:3000"
     depends_on:
@@ -105,6 +133,7 @@ services:
 
 volumes:
   postgres_data:
+  nats_data:
 
 networks:
   webai_network:
