@@ -30,7 +30,7 @@ __pycache__/
 venv/
 env/
 ENV/
-
+TASKS
 # Node
 node_modules/
 npm-debug.log*
@@ -51,3 +51,4 @@ postgres_data/
 # OS
 .DS_Store
 Thumbs.db
+

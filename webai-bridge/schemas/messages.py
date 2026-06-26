@@ -5,6 +5,7 @@ from typing import Optional, List
 class MessageCreate(BaseModel):
     message: str
     model: Optional[str] = None
+    agent_id: Optional[str] = None
 
 class MessageResponse(BaseModel):
     id: str

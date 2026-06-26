@@ -1,0 +1,69 @@
+version: "3.9"
+
+# Standalone NATS JetStream test environment.
+# Reusable for any project that uses NATS.
+#
+# Start:  docker compose -f docker-compose.nats-test.yml up -d
+# Stop:   docker compose -f docker-compose.nats-test.yml down
+# Reset:  docker compose -f docker-compose.nats-test.yml down -v
+
+services:
+
+  nats:
+    image: nats:latest
+    container_name: nats-test-server
+    command: >
+      --jetstream
+      --store_dir=/data
+      --http_port=8222
+      --name=nats-test
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_test_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-setup:
+    image: natsio/nats-box:latest
+    container_name: nats-test-setup
+    depends_on:
+      nats:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "
+        set -e
+        echo '--- Creating AUTH_EVENTS stream ---'
+        nats --server nats:4222 stream add AUTH_EVENTS \
+          --subjects 'auth.v1.>' \
+          --storage file \
+          --retention limits \
+          --max-msgs=-1 \
+          --max-age=24h \
+          --replicas=1 \
+          --defaults 2>/dev/null || echo 'Stream already exists'
+
+        echo '--- Creating durable consumers for WebAI Bridge ---'
+        for SUFFIX in CREATED UPDATED DELETED ROLE_ASSIGNED ROLE_REMOVED ROLE_SYNCED; do
+          nats --server nats:4222 consumer add AUTH_EVENTS WEBAI_BRIDGE_AUTH_CONSUMER_$${SUFFIX} \
+            --pull \
+            --durable WEBAI_BRIDGE_AUTH_CONSUMER_$${SUFFIX} \
+            --deliver all \
+            --ack explicit \
+            --filter 'auth.v1.>' \
+            --defaults 2>/dev/null || echo \"Consumer $${SUFFIX} already exists\"
+        done
+
+        echo '--- Setup complete ---'
+        nats --server nats:4222 stream ls
+        nats --server nats:4222 consumer ls AUTH_EVENTS
+      "
+
+volumes:
+  nats_test_data:
