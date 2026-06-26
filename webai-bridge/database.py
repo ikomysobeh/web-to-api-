@@ -31,15 +31,19 @@ def init_db():
     # Enable UUID extension
     cursor.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 
-    # users table — like creating users table in Laravel migration
+    # users table — id matches pizzasys user id directly (no auto-increment)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # Migration: remove SERIAL default from id so we control it (pizzasys id)
+    cursor.execute("ALTER TABLE users ALTER COLUMN id DROP DEFAULT")
+    cursor.execute("DROP SEQUENCE IF EXISTS users_id_seq CASCADE")
 
     # user_gemini_cookies table — stores each user's Gemini cookies
     # cookies are encrypted before storing (never plain text)
@@ -109,17 +113,8 @@ def init_db():
         END$$;
     """)
 
-    cursor.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name='users' AND column_name='external_id'
-            ) THEN
-                ALTER TABLE users ADD COLUMN external_id INTEGER UNIQUE;
-            END IF;
-        END$$;
-    """)
+    # Migration: drop external_id — bridge id IS the pizzasys id now
+    cursor.execute("ALTER TABLE users DROP COLUMN IF EXISTS external_id")
 
     cursor.execute("""
         DO $$
@@ -199,22 +194,22 @@ def init_db():
     conn.close()
 
 
-def upsert_user(external_id: int, email: str, role: str = "user") -> dict:
+def upsert_user(id: int, email: str, role: str = "user") -> dict:
     """
-    Insert or update a user coming from a NATS event from Laravel.
-    external_id = the user's ID in the Laravel database.
+    Insert or update a user from a NATS event.
+    id matches the pizzasys user id — same value in both systems.
     """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO users (email, password_hash, role, external_id, synced_at)
-        VALUES (%s, %s, %s, %s, NOW())
-        ON CONFLICT (external_id) DO UPDATE
-        SET email      = EXCLUDED.email,
-            role       = EXCLUDED.role,
-            synced_at  = NOW()
-        RETURNING id, email, role, external_id
-    """, (email, "EXTERNAL_AUTH", role, external_id))
+        INSERT INTO users (id, email, password_hash, role, synced_at)
+        VALUES (%s, %s, 'EXTERNAL_AUTH', %s, NOW())
+        ON CONFLICT (id) DO UPDATE
+        SET email     = EXCLUDED.email,
+            role      = EXCLUDED.role,
+            synced_at = NOW()
+        RETURNING id, email, role
+    """, (id, email, role))
     row = cursor.fetchone()
     conn.commit()
     cursor.close()
