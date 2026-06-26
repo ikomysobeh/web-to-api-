@@ -141,9 +141,9 @@ export function AgentDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      {/* Back link + actions */}
-      <div className="mb-6 flex items-center justify-between">
+    <div>
+      {/* Back link + actions band */}
+      <div className="flex items-center justify-between border-b border-white/5 px-6 py-4 sm:px-8">
         <Link
           to="/admin/agents"
           className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
@@ -156,7 +156,7 @@ export function AgentDetailPage() {
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-zinc-100 active:scale-[0.98]"
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100 active:scale-[0.98]"
           >
             <Pencil className="size-3.5" />
             Edit
@@ -165,7 +165,7 @@ export function AgentDetailPage() {
             <button
               type="button"
               onClick={() => setDeactivateOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-sm text-red-300 backdrop-blur-sm transition-all hover:bg-red-500/20 active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-lg border border-red-400/20 px-3 py-1.5 text-sm text-red-300 transition-colors hover:bg-red-500/10 active:scale-[0.98]"
             >
               <PowerOff className="size-3.5" />
               Deactivate
@@ -174,19 +174,14 @@ export function AgentDetailPage() {
         </div>
       </div>
 
-      {/* Agent info card */}
-      <div className="glass relative mb-8 overflow-hidden rounded-2xl p-6">
-        <div
-          className={cn(
-            "absolute -right-10 -top-10 size-40 rounded-full bg-gradient-to-br opacity-15 blur-3xl",
-            gradientFor(agent.id),
-          )}
-        />
-        <div className="relative mb-4 flex items-start justify-between gap-4">
+      <div className="px-6 py-7 sm:px-8">
+      {/* Agent info — flat */}
+      <div className="mb-8 border-b border-white/5 pb-8">
+        <div className="mb-4 flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <div
               className={cn(
-                "flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-bold text-white shadow-lg",
+                "flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-lg font-bold text-white",
                 gradientFor(agent.id),
               )}
             >
@@ -203,7 +198,7 @@ export function AgentDetailPage() {
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
               agent.is_active
-                ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/20"
+                ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/20"
                 : "bg-white/5 text-zinc-500 ring-white/10",
             )}
           >
@@ -217,10 +212,10 @@ export function AgentDetailPage() {
           </span>
         </div>
 
-        <div className="relative mb-4 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
           <span>
             Model:{" "}
-            <span className="nums rounded-md bg-white/5 px-2 py-0.5 font-mono text-zinc-400 ring-1 ring-inset ring-white/10">
+            <span className="nums font-mono text-zinc-400">
               {agent.model}
             </span>
           </span>
@@ -233,11 +228,11 @@ export function AgentDetailPage() {
         </div>
 
         {agent.instructions && (
-          <div className="relative">
+          <div>
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Instructions
             </p>
-            <pre className="whitespace-pre-wrap rounded-xl bg-white/5 px-4 py-3 font-sans text-xs leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5">
+            <pre className="whitespace-pre-wrap rounded-xl bg-white/[0.03] px-4 py-3 font-sans text-xs leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5">
               {agent.instructions}
             </pre>
           </div>
@@ -311,7 +306,7 @@ export function AgentDetailPage() {
             <p className="text-sm text-zinc-600">No documents yet — upload your first file above</p>
           </div>
         ) : (
-          <div className="glass overflow-hidden rounded-2xl">
+          <div className="overflow-hidden rounded-xl border border-white/5">
             <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Documents ({docs.length})
             </div>
@@ -359,7 +354,7 @@ export function AgentDetailPage() {
 
         {/* Assign panel */}
         {assignPanelOpen && (
-          <div className="glass mb-4 overflow-hidden rounded-2xl">
+          <div className="mb-4 overflow-hidden rounded-xl border border-white/5">
             <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Select users to assign
             </div>
@@ -435,7 +430,7 @@ export function AgentDetailPage() {
             <p className="text-sm text-zinc-600">No users assigned yet</p>
           </div>
         ) : (
-          <div className="glass overflow-hidden rounded-2xl">
+          <div className="overflow-hidden rounded-xl border border-white/5">
             <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
               Assigned ({assignedUsers.length})
             </div>
@@ -444,7 +439,7 @@ export function AgentDetailPage() {
                 <li key={user.id} className="flex items-center gap-3 px-4 py-3">
                   <div
                     className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-[10px] font-bold text-white shadow-md",
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-[10px] font-bold text-white",
                       gradientFor(user.email),
                     )}
                   >
@@ -466,6 +461,8 @@ export function AgentDetailPage() {
             </ul>
           </div>
         )}
+      </div>
+
       </div>
 
       {/* Edit modal — store updates agent automatically via agentFromStore */}

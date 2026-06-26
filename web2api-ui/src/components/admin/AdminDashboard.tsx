@@ -48,43 +48,41 @@ export function AdminDashboard() {
   }
 
   const stats = [
-    { label: "Total Agents", value: total, icon: Bot, grad: "from-violet-500 to-fuchsia-500" },
-    { label: "Active", value: active, icon: CheckCircle2, grad: "from-indigo-500 to-violet-500" },
-    { label: "Inactive", value: inactive, icon: PauseCircle, grad: "from-sky-500 to-blue-500" },
-    { label: "Users", value: users.length, icon: Users, grad: "from-fuchsia-500 to-purple-500" },
+    { label: "Total Agents", value: total, icon: Bot, color: "text-violet-300" },
+    { label: "Active", value: active, icon: CheckCircle2, color: "text-emerald-300" },
+    { label: "Inactive", value: inactive, icon: PauseCircle, color: "text-sky-300" },
+    { label: "Users", value: users.length, icon: Users, color: "text-fuchsia-300" },
   ];
 
   return (
-    <div className="mx-auto max-w-5xl">
-      {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <div className="glass relative mb-8 overflow-hidden rounded-3xl p-8">
-        <div className="pointer-events-none absolute -right-10 -top-10 size-56 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 opacity-25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 right-28 size-44 rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 opacity-15 blur-3xl" />
-        <div className="relative flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-violet-300">
-          <Sparkles className="size-3.5" />
-          Admin console
+    <div>
+      {/* ── Header band ──────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-5 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-violet-300/80">
+            <Sparkles className="size-3.5" />
+            Admin console
+          </div>
+          <h2 className="mt-2.5 text-2xl font-semibold tracking-tight text-white">
+            Welcome back,{" "}
+            <span className="text-violet-300">{firstName}</span>
+          </h2>
+          <p className="mt-1 max-w-md text-sm text-zinc-500">
+            Manage your agents, knowledge bases, and user access — all from one place.
+          </p>
         </div>
-        <h2 className="relative mt-3 text-3xl font-semibold tracking-tight text-white text-balance">
-          Welcome back,{" "}
-          <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">
-            {firstName}
-          </span>
-        </h2>
-        <p className="relative mt-1.5 max-w-md text-sm leading-relaxed text-zinc-400">
-          Manage your agents, knowledge bases, and user access — all from one place.
-        </p>
 
-        <div className="relative mt-5 flex flex-wrap gap-2.5">
+        <div className="flex shrink-0 flex-wrap gap-2.5">
           <Link
             to="/admin/agents"
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98]"
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]"
           >
             <Plus className="size-4" />
             New agent
           </Link>
           <Link
             to="/admin/users"
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 backdrop-blur-sm transition-all hover:bg-white/10 active:scale-[0.98]"
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3.5 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100 active:scale-[0.98]"
           >
             <UserPlus className="size-4" />
             Manage users
@@ -92,31 +90,18 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Stat cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* ── Stat cards — flat, centered, no borders ──────────────────── */}
+      <div className="grid grid-cols-2 gap-y-8  px-6 py-8 sm:grid-cols-4 sm:px-8">
         {stats.map((card) => (
           <div
             key={card.label}
-            className="glass group relative overflow-hidden rounded-2xl p-5 transition-all hover:-translate-y-0.5"
+            className="flex flex-col items-center text-center"
           >
-            <div
-              className={cn(
-                "pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-gradient-to-br opacity-25 blur-2xl transition-opacity group-hover:opacity-40",
-                card.grad,
-              )}
-            />
-            <div
-              className={cn(
-                "relative flex size-11 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
-                card.grad,
-              )}
-            >
-              <card.icon className="size-5 text-white" />
-            </div>
-            <p className="nums relative mt-4 text-3xl font-semibold text-zinc-100">
+            <card.icon className={cn("size-10", card.color)} />
+            <p className="nums mt-3.5 text-3xl font-semibold tracking-tight text-zinc-50">
               {card.value}
             </p>
-            <p className="relative mt-0.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <p className="mt-1 text-xs font-medium uppercase tracking-wider text-zinc-500">
               {card.label}
             </p>
           </div>
@@ -124,8 +109,8 @@ export function AdminDashboard() {
       </div>
 
       {/* ── Recent agents ────────────────────────────────────────────── */}
-      <div className="glass mt-8 overflow-hidden rounded-2xl">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-3.5">
+      <div className="px-6 py-7 sm:px-8">
+        <div className="mb-1 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-zinc-100">Recent agents</h3>
           <Link
             to="/admin/agents"
@@ -147,16 +132,16 @@ export function AdminDashboard() {
             </Link>
           </div>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="-mx-2 divide-y divide-white/5">
             {recentAgents.map((agent) => (
               <li key={agent.id}>
                 <Link
                   to={`/admin/agents/${agent.id}`}
-                  className="flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-white/5"
+                  className="flex items-center gap-3.5 rounded-lg px-2 py-3 transition-colors hover:bg-white/5"
                 >
                   <div
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-xs font-bold text-white shadow-md",
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-xs font-bold text-white",
                       gradientFor(agent.id),
                     )}
                   >
@@ -172,7 +157,7 @@ export function AdminDashboard() {
                     className={cn(
                       "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
                       agent.is_active
-                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/20"
+                        ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/20"
                         : "bg-white/5 text-zinc-500 ring-white/10",
                     )}
                   >

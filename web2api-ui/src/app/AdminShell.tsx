@@ -11,7 +11,7 @@ export default function AdminShell() {
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         <AdminHeader />
-        <main className="flex-1 overflow-auto p-6 sm:p-8">
+        <main className="flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>

@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { saveCookies } from '@/services/api'
+import { getCookiesStatus, saveCookies } from '@/services/api'
 import { useExtensionCookies } from '@/hooks/useExtensionCookies'
 
 interface CookieSetupModalProps {
@@ -9,25 +9,43 @@ interface CookieSetupModalProps {
 
 export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
   const { token } = useAuth()
-  const [status, setStatus] = useState<'waiting' | 'saving' | 'error'>('waiting')
+  const [status, setStatus] = useState<'waiting' | 'saving' | 'success' | 'error'>('waiting')
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Poll the backend every 2s while waiting — auto-closes when the extension sends cookies
+  useEffect(() => {
+    if (!token || status !== 'waiting') return
+    const id = setInterval(async () => {
+      try {
+        const { connected } = await getCookiesStatus(token)
+        if (connected) {
+          clearInterval(id)
+          setStatus('success')
+          setTimeout(onSuccess, 1200)
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    }, 2000)
+    return () => clearInterval(id)
+  }, [token, status, onSuccess])
+
+  // Also handle the CustomEvent path (content script dispatch fallback)
   const handleCookies = useCallback(
     async (psid: string, psidts: string) => {
-      if (!token) return
+      if (!token || status !== 'waiting') return
       setStatus('saving')
-      setErrorMsg('')
       try {
         await saveCookies(token, psid, psidts)
-        onSuccess()
+        setStatus('success')
+        setTimeout(onSuccess, 1200)
       } catch {
         setStatus('error')
         setErrorMsg('Failed to save cookies. Please try again.')
       }
     },
-    [token, onSuccess],
+    [token, status, onSuccess],
   )
-
   useExtensionCookies(handleCookies)
 
   return (
@@ -44,27 +62,17 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
           </div>
           <h2 className="text-xl font-semibold tracking-tight text-zinc-50">Connect your Gemini account</h2>
           <p className="mt-1.5 text-sm text-zinc-400">
-            Lumina AI needs your Gemini session to work. Follow the steps below.
+            One click in the Lumina extension connects your Gemini session automatically.
           </p>
         </div>
 
         {/* Steps */}
         <ol className="mb-6 flex flex-col gap-3">
           {[
-            {
-              n: 1,
-              text: 'Install the',
-              highlight: 'Lumina Extension',
-              after: 'in Chrome',
-            },
-            { n: 2, text: 'Go to', highlight: 'gemini.google.com', after: 'and sign in' },
-            {
-              n: 3,
-              text: 'Click the',
-              highlight: 'Lumina extension icon',
-              after: 'in your Chrome toolbar',
-            },
-            { n: 4, text: 'Click', highlight: '"Capture & Send"', after: 'in the popup' },
+            { n: 1, text: 'Install the', highlight: 'Lumina Extension', after: 'in Chrome' },
+            { n: 2, text: 'Sign in to', highlight: 'Lumina AI', after: 'on this page' },
+            { n: 3, text: 'Click the', highlight: 'Lumina icon', after: 'in your Chrome toolbar' },
+            { n: 4, text: 'Click', highlight: '"Connect Gemini Automatically"', after: '— done!' },
           ].map((step) => (
             <li key={step.n} className="flex items-start gap-3">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 text-xs font-bold text-violet-300 ring-1 ring-inset ring-white/10">
@@ -86,7 +94,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
               <span className="relative inline-flex size-2.5 rounded-full bg-violet-500" />
             </span>
-            <p className="text-sm text-zinc-400">Waiting for extension to send cookies…</p>
+            <p className="text-sm text-zinc-400">Waiting for extension to connect Gemini…</p>
           </div>
         )}
 
@@ -97,6 +105,15 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
             <p className="text-sm text-zinc-400">Saving your session…</p>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+            <svg viewBox="0 0 24 24" fill="none" className="size-4 text-emerald-400" stroke="currentColor" strokeWidth="2">
+              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <p className="text-sm text-emerald-300">Gemini connected! Opening chat…</p>
           </div>
         )}
 
