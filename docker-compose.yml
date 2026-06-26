@@ -30,8 +30,8 @@ services:
     image: nats:2.10-alpine
     container_name: webai-nats
     ports:
-      - "4222:4222"    # client connections
-      - "8222:8222"    # HTTP monitoring — open http://localhost:8222 to monitor
+      - "4223:4222"    # client connections (4223 on host to avoid clash with pizza-nats)
+      - "8223:8222"    # HTTP monitoring
     # Auth token comes from .env (NATS_TOKEN). Must match the bridge and pizzasys.
     # Defaults to "localdev" for local dev — set a strong NATS_TOKEN in production.
     command: ["--jetstream", "--store_dir=/data", "--http_port", "8222", "--auth", "${NATS_TOKEN:-localdev}"]
@@ -54,8 +54,10 @@ services:
     container_name: webai-api
     environment:
       WEBAI_INTERNAL_KEY: ${WEBAI_INTERNAL_KEY}
+    # Internal-only service — the bridge reaches it via the private network as
+    # http://webai:6969. Bound to localhost so it is NOT exposed to the internet.
     ports:
-      - "6969:6969"
+      - "127.0.0.1:6969:6969"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
@@ -92,6 +94,9 @@ services:
       AUTH_SERVER_VERIFY_PATH: /api/v1/auth/token-verify
       AUTH_SERVER_SERVICE_NAME: webai-bridge
       AUTH_SERVER_CALL_TOKEN: ${AUTH_SERVER_CALL_TOKEN:-}
+      # Extra browser origins allowed by CORS (comma-separated). Localhost is
+      # always allowed; add the public frontend URL here in production.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       # Ollama runs on the VPS/host; containers reach it via host-gateway.
       OLLAMA_URL: ${OLLAMA_URL:-http://host-gateway:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}

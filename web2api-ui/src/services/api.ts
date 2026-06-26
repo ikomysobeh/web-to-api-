@@ -3,6 +3,9 @@ import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUs
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
+const AUTH_BASE = (import.meta.env.VITE_AUTH_URL as string | undefined)
+  ?.replace(/\/$/, "") ?? "http://127.0.0.1:8001";
+
 
 function authHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
@@ -442,15 +445,21 @@ export async function deleteAgentDocument(
 // Admin — Users
 // ---------------------------------------------------------------------------
 
-export async function listUsers(token: string): Promise<{ users: AdminUser[] }> {
-  const res = await fetch(`${BASE}/admin/bridge/users`, {
+export async function listUsers(
+  token: string,
+  page = 1,
+  perPage = 15,
+): Promise<{ users: AdminUser[]; total: number; lastPage: number; currentPage: number }> {
+  const res = await fetch(`${AUTH_BASE}/api/v1/users?page=${page}&per_page=${perPage}`, {
     headers: authHeaders(token),
   });
   if (!res.ok) throw res;
-  // PizzaSys returns paginated: { success, data: { data: [...users], current_page, ... } }
   const raw = await res.json() as {
     data: {
       data: Array<{ id: number; name: string; email: string; roles?: Array<{ name: string }> }>;
+      total: number;
+      last_page: number;
+      current_page: number;
     };
   };
   const users: AdminUser[] = (raw.data?.data ?? []).map((u) => ({
@@ -459,7 +468,12 @@ export async function listUsers(token: string): Promise<{ users: AdminUser[] }> 
     email: u.email,
     role: u.roles?.[0]?.name ?? "user",
   }));
-  return { users };
+  return {
+    users,
+    total: raw.data?.total ?? 0,
+    lastPage: raw.data?.last_page ?? 1,
+    currentPage: raw.data?.current_page ?? 1,
+  };
 }
 
 // ---------------------------------------------------------------------------
