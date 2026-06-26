@@ -12,6 +12,12 @@ RUN npm install
 # Copy the rest of the source code
 COPY . .
 
+# Declare build-time variables so Vite can embed them into the JS bundle
+ARG VITE_API_URL=http://localhost:8001
+ARG VITE_AUTH_URL=https://authtesting.lcportal.cloud
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_AUTH_URL=$VITE_AUTH_URL
+
 # Build the app
 RUN npm run build
 

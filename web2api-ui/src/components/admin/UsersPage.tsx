@@ -53,7 +53,7 @@ export function UsersPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {users.map((user) => {
-                const isAdmin = user.role.toLowerCase() === "admin";
+                const isAdmin = (user.role ?? "").toLowerCase() === "admin" || (user.role ?? "").toLowerCase() === "super-admin";
                 return (
                   <tr key={user.id} className="transition-colors hover:bg-white/5">
                     <td className="px-4 py-3">
