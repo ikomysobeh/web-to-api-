@@ -8,7 +8,7 @@ from typing import Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 
@@ -23,6 +23,12 @@ TOKEN_EXPIRE_HOURS = 24 * 7   # 7 days — like "remember me"
 
 # Full URL: http://<laravel-host>/api/v1/auth/login
 LARAVEL_AUTH_URL = os.getenv("LARAVEL_AUTH_URL", "")
+
+# Auth server (pizzasys) — token verification on every request
+AUTH_SERVER_BASE_URL     = os.getenv("AUTH_SERVER_BASE_URL", "")
+AUTH_SERVER_VERIFY_PATH  = os.getenv("AUTH_SERVER_VERIFY_PATH", "/api/v1/auth/token-verify")
+AUTH_SERVER_SERVICE_NAME = os.getenv("AUTH_SERVER_SERVICE_NAME", "webai-bridge")
+AUTH_SERVER_CALL_TOKEN   = os.getenv("AUTH_SERVER_CALL_TOKEN", "")
 
 # Laravel role names that map to Bridge "admin"
 ADMIN_ROLES = {"super-admin", "admin"}
@@ -81,6 +87,65 @@ def verify_password(plain_password: str, hashed: str) -> bool:
         truncated_password = plain_password
 
     return pwd_context.verify(truncated_password, hashed)
+
+
+# ─── pizzasys token verification (called on every request) ───────────────────
+
+async def verify_with_pizzasys(token: str, method: str, path: str) -> Optional[dict]:
+    """
+    Call pizzasys POST /api/v1/auth/token-verify.
+    Returns { external_id, email, roles } if valid, None otherwise.
+    Only runs when AUTH_SERVER_BASE_URL and AUTH_SERVER_CALL_TOKEN are set.
+    """
+    if not AUTH_SERVER_BASE_URL or not AUTH_SERVER_CALL_TOKEN:
+        return None
+
+    endpoint = AUTH_SERVER_BASE_URL.rstrip("/") + "/" + AUTH_SERVER_VERIFY_PATH.lstrip("/")
+
+    payload = {
+        "service":       AUTH_SERVER_SERVICE_NAME,
+        "token":         token,
+        "method":        method.upper(),
+        "path":          path,
+        "route_name":    None,
+        "store_context": {"path": {}, "query": {}, "body": {}, "header": {}},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                endpoint,
+                json=payload,
+                headers={
+                    "Authorization":  f"Bearer {AUTH_SERVER_CALL_TOKEN}",
+                    "Accept":         "application/json",
+                    "Content-Type":   "application/json",
+                },
+            )
+        if not resp.is_success:
+            logger.warning(f"pizzasys token-verify returned {resp.status_code}")
+            return None
+
+        data = resp.json()
+        logger.info(f"token-verify response: active={data.get('active')} authorized={data.get('ext', {}).get('authorized')} user_id={data.get('user', {}).get('id')}")
+        if not data.get("active"):
+            logger.warning(f"token-verify: active=false. Full response: {data}")
+            return None
+        if not data.get("ext", {}).get("authorized"):
+            logger.warning(f"token-verify: active=true but authorized=false. ext={data.get('ext')}")
+            return None
+
+        user_obj = data.get("user", {})
+        return {
+            "external_id": int(user_obj.get("id", 0)),
+            "email":       str(user_obj.get("email", "")),
+            "roles":       data.get("roles", []),
+            "permissions": data.get("permissions", []),
+            "ext":         data.get("ext", {}),
+        }
+    except Exception:
+        logger.exception("pizzasys token-verify call failed")
+        return None
 
 
 # ─── Laravel auth validation ──────────────────────────────────────────────────
@@ -177,14 +242,46 @@ def decode_token(token: str) -> dict:
 
 # ─── FastAPI dependencies ─────────────────────────────────────────────────────
 
-def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dict:
-    """Read and validate the JWT. Returns user dict with user_id, email, role."""
+async def get_current_user(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+) -> dict:
+    """
+    Validate the bearer token.
+    Mode 1 (preferred): calls pizzasys token-verify when AUTH_SERVER_* vars are set.
+    Mode 2 (fallback):  decodes the bridge's own JWT when no auth server is configured.
+    """
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # ── Mode 1: pizzasys token-verify ────────────────────────────────────────
+    if AUTH_SERVER_BASE_URL and AUTH_SERVER_CALL_TOKEN:
+        pizzasys_result = await verify_with_pizzasys(token, request.method, request.url.path)
+        if not pizzasys_result:
+            raise HTTPException(status_code=401, detail="Invalid or unauthorized token")
+
+        pizzasys_id = pizzasys_result["external_id"]
+        if not pizzasys_id:
+            raise HTTPException(status_code=401, detail="Token missing user id")
+
+        # Auto-upsert: no need to wait for NATS — token-verify already gave us the data
+        roles = pizzasys_result.get("roles", [])
+        bridge_role = "admin" if any(r in ADMIN_ROLES for r in roles) else "user"
+
+        from database import upsert_user
+        upsert_user(id=pizzasys_id, email=pizzasys_result["email"], role=bridge_role)
+
+        return {
+            "user_id":     pizzasys_id,
+            "email":       pizzasys_result["email"],
+            "role":        bridge_role,
+            "roles":       roles,
+            "permissions": pizzasys_result.get("permissions", []),
+        }
+
+    # ── Mode 2: decode bridge JWT (local-only fallback) ───────────────────────
     payload = decode_token(token)
 
-    # Also verify user still exists in database
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -198,23 +295,32 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dict:
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return {
-        "user_id": row["id"],
-        "email": row["email"],
-        "role": row["role"]
-    }
+    return {"user_id": row["id"], "email": row["email"], "role": row["role"]}
 
 
 def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    """
-    FastAPI dependency — use this instead of get_current_user for admin-only routes.
-    Returns the user dict if they are admin, raises 403 otherwise.
+    """Allows super-admin or admin roles. Use on /admin/* routes."""
+    if not any(r in ADMIN_ROLES for r in user.get("roles", [])):
+        # fallback: also accept the legacy role string for JWT-only mode
+        if user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
-    Usage in a route:
-        @app.get("/admin/agents")
-        def list_agents(user = Depends(require_admin)):
+
+def require_permission(permission: str):
+    """
+    Dependency factory for specific permission checks.
+
+    Usage:
+        @app.post("/admin/agents/{id}/documents")
+        async def upload(user = Depends(require_permission("upload documents"))):
             ...
     """
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user
+    def dep(user: dict = Depends(get_current_user)) -> dict:
+        if permission not in user.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Missing permission: {permission}"
+            )
+        return user
+    return dep

@@ -9,19 +9,10 @@ from database import get_connection
 
 logger = logging.getLogger("vector")
 
-# Gemini Embeddings API
-# Uses the same Gemini API key the admin configured for their account
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-# gemini-embedding-001 is the current stable model (replaces text-embedding-004/005).
-# It natively outputs 3072 dims, but we request 768 via outputDimensionality so the
-# database column (vector(768)) stays compatible with no schema change needed.
-EMBED_MODEL = "models/gemini-embedding-001"
-EMBED_DIMENSIONS = 768   # must match document_chunks.embedding vector(768)
-
-def _embed_url() -> str:
-    """Build the embedding URL at call time so key changes take effect without restart."""
-    key = os.getenv("GEMINI_API_KEY", "")
-    return f"https://generativelanguage.googleapis.com/v1/{EMBED_MODEL}:embedContent?key={key}"
+# Ollama local embedding — no API key needed, runs on your own machine
+OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "nomic-embed-text")
+EMBED_DIMENSIONS = 768   # nomic-embed-text produces 768 dims — matches document_chunks.embedding vector(768)
 
 CHUNK_SIZE = 1500      # characters per chunk (~375 tokens at 4 chars/token)
 CHUNK_OVERLAP = 150    # overlap between chunks
@@ -66,59 +57,26 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     return [c for c in chunks if c]
 
 
-# ─── Embedding ───────────────────────────────────────────────────────────────
+# ─── Embedding via Ollama ────────────────────────────────────────────────────
 
 async def embed_text(text: str) -> Optional[List[float]]:
-    """
-    Call Gemini Embeddings API and return a 768-dimension vector.
-    Returns None if the call fails.
-    """
-    if not os.getenv("GEMINI_API_KEY", ""):
-        logger.error("GEMINI_API_KEY not set — cannot generate embeddings")
-        return None
-
-    payload = {
-        "model": EMBED_MODEL,
-        "content": {"parts": [{"text": text}]},
-        "taskType": "RETRIEVAL_DOCUMENT",
-        "outputDimensionality": EMBED_DIMENSIONS
-    }
-
+    """Call local Ollama and return a 768-dimension vector. Returns None if call fails."""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(_embed_url(), json=payload)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/embeddings",
+                json={"model": OLLAMA_MODEL, "prompt": text}
+            )
             resp.raise_for_status()
-            data = resp.json()
-            return data["embedding"]["values"]
+            return resp.json()["embedding"]
     except Exception:
-        logger.exception(f"Embedding API call failed for text: {text[:80]}...")
+        logger.exception(f"Ollama embed_text failed for: {text[:80]}...")
         return None
 
 
 async def embed_query(text: str) -> Optional[List[float]]:
-    """
-    Same as embed_text but uses RETRIEVAL_QUERY task type.
-    Use this when embedding the user's question at chat time.
-    """
-    if not os.getenv("GEMINI_API_KEY", ""):
-        return None
-
-    payload = {
-        "model": EMBED_MODEL,
-        "content": {"parts": [{"text": text}]},
-        "taskType": "RETRIEVAL_QUERY",
-        "outputDimensionality": EMBED_DIMENSIONS
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(_embed_url(), json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            return data["embedding"]["values"]
-    except Exception:
-        logger.exception("Query embedding failed")
-        return None
+    """Same as embed_text — Ollama uses the same endpoint for queries."""
+    return await embed_text(text)
 
 
 # ─── Storage ─────────────────────────────────────────────────────────────────
@@ -177,26 +135,40 @@ async def search_chunks(agent_id: str, query: str, limit: int = 5) -> List[str]:
     Returns a list of chunk text strings (not the vectors).
     Returns empty list if embedding fails or agent has no chunks.
     """
+    # Count total chunks for this agent first
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as cnt FROM document_chunks WHERE agent_id = %s", (agent_id,))
+    total = cursor.fetchone()["cnt"]
+    logger.info(f"search_chunks: agent={agent_id} has {total} chunks in DB, query='{query[:60]}'")
+
+    if total == 0:
+        logger.warning(f"search_chunks: agent {agent_id} has NO chunks — document may not have been ingested properly")
+        cursor.close()
+        conn.close()
+        return []
+
     query_vector = await embed_query(query)
     if query_vector is None:
         logger.warning("Could not embed query — returning empty context")
+        cursor.close()
+        conn.close()
         return []
 
     embedding_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
-    conn = get_connection()
-    cursor = conn.cursor()
     cursor.execute("""
-        SELECT content
+        SELECT content, embedding <=> %s::vector AS distance
         FROM document_chunks
         WHERE agent_id = %s
-        ORDER BY embedding <=> %s::vector
+        ORDER BY distance
         LIMIT %s
-    """, (agent_id, embedding_str, limit))
+    """, (embedding_str, agent_id, limit))
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
 
+    logger.info(f"search_chunks: found {len(rows)} chunks, top distances: {[round(row['distance'], 4) for row in rows]}")
     return [row["content"] for row in rows]
 
 
