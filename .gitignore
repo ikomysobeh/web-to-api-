@@ -31,7 +31,6 @@ venv/
 env/
 ENV/
 TASKS
-PGVECTOR_PROJECT_ANALYSIS.md
 # Node
 node_modules/
 npm-debug.log*
