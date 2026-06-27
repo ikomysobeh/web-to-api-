@@ -21,8 +21,8 @@ DEV_MODE   = os.getenv("DEV_MODE", "0") == "1"
 # Override with NATS_AUTH_STREAM / NATS_AUTH_DURABLE env vars if needed.
 _default_stream  = "AUTH_TESTING_EVENTS"  if DEV_MODE else "AUTH_EVENTS"
 _default_durable = "WEBAI_AUTH_TESTING_CONSUMER" if DEV_MODE else "WEBAI_AUTH_CONSUMER"
-AUTH_STREAM  = os.getenv("NATS_AUTH_STREAM",  _default_stream)
-AUTH_DURABLE = os.getenv("NATS_AUTH_DURABLE", _default_durable)
+AUTH_STREAM  = os.getenv("NATS_AUTH_STREAM") or _default_stream
+AUTH_DURABLE = os.getenv("NATS_AUTH_DURABLE") or _default_durable
 AUTH_PREFIX  = "auth.testing.v1" if DEV_MODE else "auth.v1"
 
 # Track connection state for /health/nats endpoint
