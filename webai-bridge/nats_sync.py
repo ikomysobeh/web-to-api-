@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import ssl
 from nats.aio.client import Client as NATS
 from database import upsert_user, delete_user_by_external_id
 
@@ -13,6 +14,7 @@ NATS_URL     = os.getenv("NATS_URL", "nats://localhost:4222")
 NATS_TOKEN   = os.getenv("NATS_TOKEN", "")
 NATS_USER    = os.getenv("NATS_USER", "")
 NATS_PASS    = os.getenv("NATS_PASS", "")
+NATS_TLS     = os.getenv("NATS_TLS", "false").lower() in ("1", "true", "yes")
 DEV_MODE     = os.getenv("DEV_MODE", "0") == "1"
 AUTH_STREAM  = os.getenv("NATS_AUTH_STREAM", "AUTH_EVENTS")
 AUTH_DURABLE = os.getenv("NATS_AUTH_DURABLE", "WEBAI_BRIDGE_AUTH_CONSUMER")
@@ -293,6 +295,10 @@ async def start_nats_sync():
     elif NATS_USER and NATS_PASS:
         connect_kwargs["user"]     = NATS_USER
         connect_kwargs["password"] = NATS_PASS
+
+    if NATS_TLS:
+        tls_ctx = ssl.create_default_context()
+        connect_kwargs["tls"] = tls_ctx
 
     try:
         await nc.connect(NATS_URL, **connect_kwargs)

@@ -25,27 +25,6 @@ services:
     networks:
       - webai_network
 
-  # NATS Message Broker (JetStream enabled)
-  nats:
-    image: nats:2.10-alpine
-    container_name: webai-nats
-    ports:
-      - "4223:4222"    # client connections (4223 on host to avoid clash with pizza-nats)
-      - "8223:8222"    # HTTP monitoring
-    # Auth token comes from .env (NATS_TOKEN). Must match the bridge and pizzasys.
-    # Defaults to "localdev" for local dev — set a strong NATS_TOKEN in production.
-    command: ["--jetstream", "--store_dir=/data", "--http_port", "8222", "--auth", "${NATS_TOKEN:-localdev}"]
-    volumes:
-      - nats_data:/data   # persist JetStream messages across restarts
-    restart: unless-stopped
-    networks:
-      - webai_network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   # WebAI-to-API
   webai:
     build:
@@ -82,7 +61,8 @@ services:
       WEBAI_INTERNAL_KEY: ${WEBAI_INTERNAL_KEY}
       SECRET_KEY: ${SECRET_KEY}
       COOKIE_ENCRYPTION_KEY: ${COOKIE_ENCRYPTION_KEY}
-      NATS_URL: nats://nats:4222
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
+      NATS_TLS: ${NATS_TLS:-false}
       NATS_TOKEN: ${NATS_TOKEN:-}
       NATS_USER: ${NATS_USER:-}
       NATS_PASS: ${NATS_PASS:-}
@@ -112,8 +92,6 @@ services:
         condition: service_healthy
       webai:
         condition: service_healthy
-      nats:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - webai_network
@@ -138,7 +116,6 @@ services:
 
 volumes:
   postgres_data:
-  nats_data:
 
 networks:
   webai_network:
