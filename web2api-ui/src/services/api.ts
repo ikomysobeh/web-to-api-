@@ -39,10 +39,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<AuthResponse> {
-  // Login goes through the FastAPI bridge, which validates against PizzaSys
-  // internally and returns its own JWT. Do NOT call PizzaSys directly here —
-  // the bridge token (JWT) is what all BASE/* endpoints expect.
-  const res = await fetch(`${BASE}/auth/login`, {
+  const res = await fetch(`${AUTH_BASE}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ email, password }),
