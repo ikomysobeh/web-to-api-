@@ -280,7 +280,7 @@ async def start_nats_sync():
         logger.info("NATS reconnected — user sync resumed")
 
     async def error_cb(e):
-        logger.error(f"NATS error: {e}")
+        logger.error(f"NATS error: {type(e).__name__}: {e}")
 
     # Build auth options — token takes priority, then user+pass, then no auth
     connect_kwargs = dict(
@@ -299,6 +299,7 @@ async def start_nats_sync():
     if NATS_TLS:
         tls_ctx = ssl.create_default_context()
         connect_kwargs["tls"] = tls_ctx
+        connect_kwargs["tls_handshake_first"] = True
 
     try:
         await nc.connect(NATS_URL, **connect_kwargs)
