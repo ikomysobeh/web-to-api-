@@ -286,20 +286,28 @@ async def start_nats_sync():
 
         js = nc.jetstream()
 
-        await js.subscribe(
+        psub = await js.pull_subscribe(
             f"{AUTH_PREFIX}.>",
-            stream=AUTH_STREAM,
             durable=AUTH_DURABLE,
-            cb=dispatch_event,
+            stream=AUTH_STREAM,
         )
 
         logger.info(
-            f"JetStream subscribed | stream={AUTH_STREAM} | "
+            f"JetStream pull subscribed | stream={AUTH_STREAM} | "
             f"consumer={AUTH_DURABLE} | prefix={AUTH_PREFIX}"
         )
 
         while True:
-            await asyncio.sleep(30)
+            try:
+                msgs = await psub.fetch(batch=10, timeout=5)
+                for msg in msgs:
+                    await dispatch_event(msg)
+            except Exception as e:
+                if type(e).__name__ == "TimeoutError":
+                    pass  # no messages — keep polling
+                else:
+                    logger.exception("Error fetching NATS messages")
+                    await asyncio.sleep(5)
 
     except Exception:
         nats_connected = False
