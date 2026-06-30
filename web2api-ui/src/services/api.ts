@@ -1,4 +1,4 @@
-import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, ApiConversation, ApiMessage, ApiModel, ApiUserProfile, UserAgent } from "@/types/chat";
+import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, ApiConversation, ApiMessage, ApiModel, ApiUserProfile, Suggestion, UserAgent } from "@/types/chat";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
@@ -531,6 +531,64 @@ export async function getMyAgent(
 ): Promise<{ agent: UserAgent }> {
   const res = await fetch(`${BASE}/api/agents/${agentId}`, {
     headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// User-facing: approved starter questions for an assigned agent.
+export async function getMyAgentSuggestions(
+  token: string,
+  agentId: string,
+): Promise<{ suggestions: Suggestion[] }> {
+  const res = await fetch(`${BASE}/api/agents/${agentId}/suggestions`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Suggestions
+// ---------------------------------------------------------------------------
+
+// Ask Gemini (admin's connected account) to generate questions. NOT saved yet.
+export async function generateAgentSuggestions(
+  token: string,
+  agentId: string,
+  count = 6,
+): Promise<{ questions: string[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ count }),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// Read the currently saved (approved) suggestions for an agent.
+export async function getAgentSuggestions(
+  token: string,
+  agentId: string,
+): Promise<{ suggestions: Suggestion[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// Replace the saved suggestions with the admin-approved list.
+export async function saveAgentSuggestions(
+  token: string,
+  agentId: string,
+  questions: string[],
+): Promise<{ success: boolean; count: number }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ questions }),
   });
   if (!res.ok) throw res;
   return res.json();

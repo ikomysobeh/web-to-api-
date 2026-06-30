@@ -26,6 +26,11 @@ from schemas.users import UserPreferencesUpdate
 from schemas.models import ModelInfo
 from schemas.agents import AgentCreate, AgentUpdate, AgentResponse, AgentPublicResponse
 from schemas.documents import DocumentUploadResponse
+from schemas.suggestions import GenerateRequest, SaveRequest
+from services.suggestion_service import (
+    rebuild_agent_document_text, build_suggestion_prompt, parse_questions,
+    get_saved_suggestions, replace_suggestions
+)
 from services.conversation_service import (
     create_conversation, get_conversations, get_conversation,
     update_conversation, delete_conversation, delete_all_conversations
@@ -1346,6 +1351,97 @@ def admin_delete_document(agent_id: str, filename: str, user = Depends(require_a
 
 
 # ════════════════════════════════════════════════════════
+# ADMIN — SUGGESTIONS (Gemini-generated starter questions)
+# ════════════════════════════════════════════════════════
+
+def _extract_completion_text(payload: dict) -> str:
+    """Pull the assistant text out of a (non-streaming) chat completion response."""
+    try:
+        choices = payload.get("choices")
+        if choices:
+            msg = choices[0].get("message") or {}
+            if msg.get("content"):
+                return msg["content"]
+            if choices[0].get("text"):
+                return choices[0]["text"]
+    except (AttributeError, IndexError, TypeError):
+        pass
+    # legacy {"response": "..."} shape
+    if isinstance(payload.get("response"), str):
+        return payload["response"]
+    return ""
+
+
+@app.post("/admin/agents/{agent_id}/suggestions/generate")
+async def admin_generate_suggestions(agent_id: str, data: GenerateRequest, user = Depends(require_admin)):
+    """
+    Ask Gemini (using THIS admin's connected account) to write starter questions
+    from the agent's uploaded documents. Returns the list — does NOT save it.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, instructions, model FROM agents WHERE id = %s", (agent_id,))
+    agent = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    count = data.count or 6
+    doc_text = rebuild_agent_document_text(agent_id)
+    messages = build_suggestion_prompt(agent["name"], agent["instructions"], doc_text, count)
+
+    user_id = str(user["user_id"])
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{WEBAI_URL}/v1/chat/completions",
+                json={"model": agent["model"], "stream": False, "messages": messages},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Internal-Key": WEBAI_INTERNAL_KEY,
+                    "X-Internal-User-ID": user_id,
+                },
+            )
+    except Exception:
+        logger.exception("Suggestion generation: WebAI-to-API call failed")
+        raise HTTPException(status_code=502, detail="Could not reach the Gemini service. Try again.")
+
+    if resp.status_code != 200:
+        logger.error(f"Suggestion generation failed: status={resp.status_code} body={resp.text[:300]}")
+        raise HTTPException(
+            status_code=502,
+            detail="Gemini request failed. Make sure your Gemini account is connected, then try again."
+        )
+
+    text = _extract_completion_text(resp.json())
+    questions = parse_questions(text, count)
+    logger.info(f"Suggestions generated for agent={agent_id}: {len(questions)} questions")
+    return {"success": True, "questions": questions}
+
+
+@app.get("/admin/agents/{agent_id}/suggestions")
+def admin_get_suggestions(agent_id: str, user = Depends(require_admin)):
+    """Return the currently saved (approved) suggestions for an agent."""
+    return {"success": True, "suggestions": get_saved_suggestions(agent_id)}
+
+
+@app.put("/admin/agents/{agent_id}/suggestions")
+def admin_save_suggestions(agent_id: str, data: SaveRequest, user = Depends(require_admin)):
+    """Replace the saved suggestions with the admin-approved list."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM agents WHERE id = %s", (agent_id,))
+    found = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    count = replace_suggestions(agent_id, data.questions)
+    return {"success": True, "count": count, "message": f"Saved {count} suggestion(s)"}
+
+
+# ════════════════════════════════════════════════════════
 # ADMIN — USER-AGENT ASSIGNMENT
 # ════════════════════════════════════════════════════════
 
@@ -1498,3 +1594,22 @@ def user_get_agent(agent_id: str, user = Depends(get_current_user)):
     if not row:
         raise HTTPException(status_code=404, detail="Agent not found or not assigned to you")
     return {"success": True, "agent": dict(row)}
+
+
+@app.get("/api/agents/{agent_id}/suggestions")
+def user_get_agent_suggestions(agent_id: str, user = Depends(get_current_user)):
+    """Approved starter questions for an agent the logged-in user is assigned to."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 1
+        FROM user_agents ua
+        JOIN agents a ON a.id = ua.agent_id
+        WHERE ua.agent_id = %s AND ua.user_id = %s AND a.is_active = true
+    """, (agent_id, user["user_id"]))
+    assigned = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not assigned:
+        raise HTTPException(status_code=404, detail="Agent not found or not assigned to you")
+    return {"success": True, "suggestions": get_saved_suggestions(agent_id)}

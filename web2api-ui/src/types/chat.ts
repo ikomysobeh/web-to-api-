@@ -143,6 +143,12 @@ export interface AgentDocument {
   chunk_count: number;
 }
 
+export interface Suggestion {
+  id: string;
+  question: string;
+  sort_order?: number;
+}
+
 export interface AdminUser {
   id: number;
   name: string;
