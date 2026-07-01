@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { useAdminStore } from "@/stores/adminStore";
 import type { Agent, AgentCreate, AgentUpdate } from "@/types/chat";
 
@@ -48,8 +49,8 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
         onClose();
         onCreated?.(newAgent);
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(await getErrorMessage(err));
     }
   }
 

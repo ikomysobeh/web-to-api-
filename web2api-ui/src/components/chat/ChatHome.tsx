@@ -11,7 +11,8 @@ import {
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 import type { ChatHomeProps } from "@/app/AppShell";
-import type { AIModelId, ApiModel } from "@/types/chat";
+import type { AIModelId, ApiModel, Suggestion } from "@/types/chat";
+import { getMyAgentSuggestions } from "@/services/api";
 import { AgentDropdown } from "./AgentDropdown";
 import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,36 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Starter-question chips for the selected agent
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  useEffect(() => {
+    if (!selectedAgentId) {
+      setSuggestions([]);
+      return;
+    }
+    const token = localStorage.getItem("auth_token") ?? "";
+    if (!token) return;
+    let cancelled = false;
+    getMyAgentSuggestions(token, selectedAgentId)
+      .then((data) => {
+        if (!cancelled) setSuggestions(data.suggestions);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedAgentId]);
+
+  function applySuggestion(question: string) {
+    setValue(question);
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }
+
   const { listening, supported: micSupported, toggle: toggleMic } = useSpeechToText(
     (text) => setValue((prev) => (prev ? prev + " " + text : text)),
   );
@@ -347,6 +378,27 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
               </div>
             </div>
           </div>
+
+          {/* ── Suggestion chips (for the selected agent) ───────────────── */}
+          {suggestions.length > 0 && (
+            <div className="flex w-full flex-wrap justify-center gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => applySuggestion(s.question)}
+                  className={cn(
+                    "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-left text-sm text-zinc-300",
+                    "transition-colors hover:border-violet-400/30 hover:bg-white/10 hover:text-zinc-100",
+                    "disabled:pointer-events-none disabled:opacity-50",
+                  )}
+                >
+                  {s.question}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* ── Keyboard hint ──────────────────────────────────────────── */}
           <p className="text-center text-xs text-zinc-600">

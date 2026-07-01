@@ -32,6 +32,7 @@ export interface ChatInputProps {
   myAgents?: UserAgent[];
   selectedAgentId?: string | null;
   onAgentChange?: (id: string | null) => void;
+  agentLocked?: boolean;
 }
 
 const DROPDOWN_WIDTH = 256;
@@ -201,6 +202,7 @@ export function ChatInput({
   myAgents = [],
   selectedAgentId = null,
   onAgentChange,
+  agentLocked = false,
 }: ChatInputProps) {
   // Fall back to static AI_MODELS while API models are loading
   const models: ApiModel[] = availableModels?.length
@@ -254,13 +256,14 @@ export function ChatInput({
         )}
       >
         <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
-          {myAgents.length > 0 && (
+          {myAgents.length > 0 && (!agentLocked || selectedAgentId) && (
             <AgentDropdown
               myAgents={myAgents}
               selectedAgentId={selectedAgentId}
               onAgentChange={onAgentChange ?? (() => {})}
               disabled={disabled}
               dropUp
+              locked={agentLocked}
             />
           )}
           <ModelDropdown

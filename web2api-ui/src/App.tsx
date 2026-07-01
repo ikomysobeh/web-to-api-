@@ -5,8 +5,10 @@ import AdminShell from '@/app/AdminShell'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
 import { AgentsPage } from '@/components/admin/AgentsPage'
 import { AgentDetailPage } from '@/components/admin/AgentDetailPage'
+import { EmbedPage } from '@/components/admin/EmbedPage'
 import { UsersPage } from '@/components/admin/UsersPage'
 import LoginPage from '@/pages/LoginPage'
+import WidgetPage from '@/pages/WidgetPage'
 import type { ReactNode } from 'react'
 
 function Spinner() {
@@ -38,6 +40,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/widget" element={<WidgetPage />} />
           <Route
             path="/chat"
             element={
@@ -57,6 +60,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="agents" element={<AgentsPage />} />
             <Route path="agents/:agentId" element={<AgentDetailPage />} />
+            <Route path="embed" element={<EmbedPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/chat" replace />} />

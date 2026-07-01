@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Pencil, PowerOff, Trash2, Upload, UserPlus, UserX } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Lightbulb, Pencil, PowerOff, Sparkles, Trash2, Upload, UserPlus, UserX } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdminStore } from "@/stores/adminStore";
 import { getAgent, listUsers } from "@/services/api";
 import type { AdminUser } from "@/types/chat";
 import { AgentFormModal } from "./AgentFormModal";
+import { SuggestionsModal } from "./SuggestionsModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { gradientFor, initialsOf } from "@/lib/gradients";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import type { Agent } from "@/types/chat";
 
 export function AgentDetailPage() {
@@ -31,6 +33,10 @@ export function AgentDetailPage() {
     loadAgentUsers,
     assignAgentUsers,
     removeAgentUser,
+    suggestionsByAgentId,
+    isGeneratingSuggestions,
+    loadSuggestions,
+    generateSuggestions,
   } = useAdminStore();
 
   // Prefer agent from store (stays live after edits); fall back to fetched copy
@@ -51,6 +57,10 @@ export function AgentDetailPage() {
 
   const docs = documentsByAgentId[agentId ?? ""] ?? [];
   const assignedUsers = assignedUsersByAgentId[agentId ?? ""] ?? [];
+  const suggestions = suggestionsByAgentId[agentId ?? ""] ?? [];
+  const [suggestionsModalOpen, setSuggestionsModalOpen] = useState(false);
+  const [suggestionSeed, setSuggestionSeed] = useState<string[]>([]);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [assignPanelOpen, setAssignPanelOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [removeUserId, setRemoveUserId] = useState<number | null>(null);
@@ -72,6 +82,7 @@ export function AgentDetailPage() {
     }
     void loadDocuments(agentId);
     void loadAgentUsers(agentId);
+    void loadSuggestions(agentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, token]);
 
@@ -93,14 +104,7 @@ export function AgentDetailPage() {
       await uploadDocument(agentId, file);
       setUploadFeedback({ type: "success", message: `"${file.name}" uploaded successfully` });
     } catch (err) {
-      let msg = "Upload failed. Please try again.";
-      if (err instanceof Response) {
-        try {
-          const body = (await err.json()) as { detail?: string };
-          msg = body.detail ?? msg;
-        } catch { /* ignore */ }
-      }
-      setUploadFeedback({ type: "error", message: msg });
+      setUploadFeedback({ type: "error", message: await getErrorMessage(err, "Upload failed. Please try again.") });
     }
   }
 
@@ -126,6 +130,24 @@ export function AgentDetailPage() {
     if (!deleteDocFilename || !agentId) return;
     await deleteDocument(agentId, deleteDocFilename);
     setDeleteDocFilename(null);
+  }
+
+  async function handleGenerateSuggestions() {
+    if (!agentId) return;
+    setSuggestionError(null);
+    try {
+      const questions = await generateSuggestions(agentId);
+      setSuggestionSeed(questions);
+      setSuggestionsModalOpen(true);
+    } catch (err) {
+      setSuggestionError(await getErrorMessage(err, "Could not generate suggestions. Please try again."));
+    }
+  }
+
+  function handleEditSuggestions() {
+    setSuggestionError(null);
+    setSuggestionSeed(suggestions.map((s) => s.question));
+    setSuggestionsModalOpen(true);
   }
 
   function toggleUserSelection(userId: number) {
@@ -350,6 +372,76 @@ export function AgentDetailPage() {
         )}
       </div>
 
+      {/* Suggestions */}
+      <div className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-zinc-100">Suggestions</h3>
+          <div className="flex items-center gap-2">
+            {suggestions.length > 0 && (
+              <button
+                type="button"
+                onClick={handleEditSuggestions}
+                className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100 active:scale-[0.98]"
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={isGeneratingSuggestions}
+              onClick={() => void handleGenerateSuggestions()}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+            >
+              {isGeneratingSuggestions ? (
+                <>
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5" />
+                  Generate Suggestions
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <p className="mb-4 text-xs text-zinc-500">
+          Starter questions shown to users of this agent. Generated from its documents by Gemini, then
+          reviewed and approved by you.
+        </p>
+
+        {suggestionError && (
+          <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-inset ring-red-400/20">
+            {suggestionError}
+          </div>
+        )}
+
+        {suggestions.length === 0 ? (
+          <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10">
+            <p className="text-sm text-zinc-600">
+              No suggestions yet — click "Generate Suggestions" to create some
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-white/5">
+            <div className="border-b border-white/5 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Suggestions ({suggestions.length})
+            </div>
+            <ul className="divide-y divide-white/5">
+              {suggestions.map((s) => (
+                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <Lightbulb className="size-4 shrink-0 text-zinc-500" />
+                  <p className="min-w-0 flex-1 text-sm text-zinc-200">{s.question}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       {/* Assigned Users */}
       <div className="mt-8">
         <div className="mb-4 flex items-center justify-between">
@@ -513,6 +605,16 @@ export function AgentDetailPage() {
       {/* Edit modal — store updates agent automatically via agentFromStore */}
       {editOpen && (
         <AgentFormModal agent={agent} onClose={() => setEditOpen(false)} />
+      )}
+
+      {/* Suggestions review modal */}
+      {suggestionsModalOpen && agentId && (
+        <SuggestionsModal
+          agentId={agentId}
+          agentName={agent.name}
+          initialQuestions={suggestionSeed}
+          onClose={() => setSuggestionsModalOpen(false)}
+        />
       )}
 
       {/* Deactivate confirm */}

@@ -1,4 +1,4 @@
-import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, ApiConversation, ApiMessage, ApiModel, ApiUserProfile, UserAgent } from "@/types/chat";
+import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, ApiConversation, ApiMessage, ApiModel, ApiUserProfile, EmbedConfig, EmbedCreate, EmbedUpdate, Suggestion, UserAgent } from "@/types/chat";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
@@ -161,14 +161,17 @@ export async function createConversation(
   token: string,
   title?: string,
   model?: string,
+  agentId?: string | null,
 ): Promise<ConversationResponse> {
+  const body: Record<string, string> = {
+    title: title ?? "New Conversation",
+    model: model ?? "gemini-3-flash",
+  };
+  if (agentId) body.agent_id = agentId;
   const res = await fetch(`${BASE}/api/conversations`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({
-      title: title ?? "New Conversation",
-      model: model ?? "gemini-3-flash",
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw res;
   return res.json();
@@ -534,4 +537,152 @@ export async function getMyAgent(
   });
   if (!res.ok) throw res;
   return res.json();
+}
+
+// User-facing: approved starter questions for an assigned agent.
+export async function getMyAgentSuggestions(
+  token: string,
+  agentId: string,
+): Promise<{ suggestions: Suggestion[] }> {
+  const res = await fetch(`${BASE}/api/agents/${agentId}/suggestions`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Suggestions
+// ---------------------------------------------------------------------------
+
+// Ask Gemini (admin's connected account) to generate questions. NOT saved yet.
+export async function generateAgentSuggestions(
+  token: string,
+  agentId: string,
+  count = 6,
+): Promise<{ questions: string[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ count }),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// Read the currently saved (approved) suggestions for an agent.
+export async function getAgentSuggestions(
+  token: string,
+  agentId: string,
+): Promise<{ suggestions: Suggestion[] }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// Replace the saved suggestions with the admin-approved list.
+export async function saveAgentSuggestions(
+  token: string,
+  agentId: string,
+  questions: string[],
+): Promise<{ success: boolean; count: number }> {
+  const res = await fetch(`${BASE}/admin/agents/${agentId}/suggestions`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ questions }),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Embeds (embeddable chat widgets)
+// ---------------------------------------------------------------------------
+
+export async function listEmbeds(token: string): Promise<{ embeds: EmbedConfig[] }> {
+  const res = await fetch(`${BASE}/admin/embeds`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function createEmbed(
+  token: string,
+  data: EmbedCreate,
+): Promise<{ embed: EmbedConfig }> {
+  const res = await fetch(`${BASE}/admin/embeds`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function getEmbed(token: string, id: string): Promise<{ embed: EmbedConfig }> {
+  const res = await fetch(`${BASE}/admin/embeds/${id}`, { headers: authHeaders(token) });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function updateEmbed(
+  token: string,
+  id: string,
+  data: EmbedUpdate,
+): Promise<{ embed: EmbedConfig }> {
+  const res = await fetch(`${BASE}/admin/embeds/${id}`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function deleteEmbed(
+  token: string,
+  id: string,
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/admin/embeds/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Embed widget (public-facing, used inside the iframe)
+// ---------------------------------------------------------------------------
+
+export interface EmbedBootstrap {
+  success: boolean;
+  agent: { name: string; description: string | null; model: string };
+  config: import("@/types/chat").EmbedConfigAppearance;
+}
+
+export async function getEmbedBootstrap(
+  token: string,
+  embedKey: string,
+): Promise<EmbedBootstrap> {
+  const res = await fetch(`${BASE}/api/embeds/${embedKey}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw res;
+  return res.json();
+}
+
+export async function embedChatStream(
+  token: string,
+  embedKey: string,
+  message: string,
+): Promise<Response> {
+  const res = await fetch(`${BASE}/api/embeds/${embedKey}/chat`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw res;
+  return res;
 }

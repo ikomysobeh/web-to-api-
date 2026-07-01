@@ -1,4 +1,4 @@
-import { LayoutDashboard, Bot, ArrowLeft, Sparkles, Users } from "lucide-react";
+import { LayoutDashboard, Bot, ArrowLeft, Code2, Sparkles, Users } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { SidebarFooter } from "@/components/layout/SidebarFooter";
@@ -21,6 +21,7 @@ export function AdminSidebar() {
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
         <NavItem to="/admin" icon={LayoutDashboard} label="Dashboard" end />
         <NavItem to="/admin/agents" icon={Bot} label="Agents" />
+        <NavItem to="/admin/embed" icon={Code2} label="Embed" />
         <NavItem to="/admin/users" icon={Users} label="Users" />
       </nav>
 
