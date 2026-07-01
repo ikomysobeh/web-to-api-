@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { useAdminStore } from "@/stores/adminStore";
 
 interface SuggestionsModalProps {
@@ -47,8 +48,8 @@ export function SuggestionsModal({ agentId, agentName, initialQuestions, onClose
     try {
       await saveSuggestions(agentId, cleaned);
       onClose();
-    } catch {
-      setError("Could not save suggestions. Please try again.");
+    } catch (err) {
+      setError(await getErrorMessage(err, "Could not save suggestions. Please try again."));
     }
   }
 

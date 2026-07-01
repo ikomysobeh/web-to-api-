@@ -189,6 +189,26 @@ def init_db():
         END$$;
     """)
 
+    # --- embed_configs table (embeddable chat widgets) ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS embed_configs (
+            id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            embed_key       TEXT UNIQUE NOT NULL,
+            agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+            created_by      INTEGER REFERENCES users(id),
+            allowed_domains TEXT[] NOT NULL DEFAULT '{}',
+            config          JSONB DEFAULT '{}',
+            is_active       BOOLEAN DEFAULT true,
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_embed_configs_key
+        ON embed_configs (embed_key)
+    """)
+
     # --- agent_suggestions table (admin-approved starter questions per agent) ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS agent_suggestions (

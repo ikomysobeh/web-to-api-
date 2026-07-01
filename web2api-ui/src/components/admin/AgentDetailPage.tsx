@@ -10,6 +10,7 @@ import { SuggestionsModal } from "./SuggestionsModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { gradientFor, initialsOf } from "@/lib/gradients";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import type { Agent } from "@/types/chat";
 
 export function AgentDetailPage() {
@@ -103,14 +104,7 @@ export function AgentDetailPage() {
       await uploadDocument(agentId, file);
       setUploadFeedback({ type: "success", message: `"${file.name}" uploaded successfully` });
     } catch (err) {
-      let msg = "Upload failed. Please try again.";
-      if (err instanceof Response) {
-        try {
-          const body = (await err.json()) as { detail?: string };
-          msg = body.detail ?? msg;
-        } catch { /* ignore */ }
-      }
-      setUploadFeedback({ type: "error", message: msg });
+      setUploadFeedback({ type: "error", message: await getErrorMessage(err, "Upload failed. Please try again.") });
     }
   }
 
@@ -146,14 +140,7 @@ export function AgentDetailPage() {
       setSuggestionSeed(questions);
       setSuggestionsModalOpen(true);
     } catch (err) {
-      let msg = "Could not generate suggestions. Please try again.";
-      if (err instanceof Response) {
-        try {
-          const body = (await err.json()) as { detail?: string };
-          msg = body.detail ?? msg;
-        } catch { /* ignore */ }
-      }
-      setSuggestionError(msg);
+      setSuggestionError(await getErrorMessage(err, "Could not generate suggestions. Please try again."));
     }
   }
 

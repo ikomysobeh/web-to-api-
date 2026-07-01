@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { login as apiLogin } from '@/services/api'
+import { getErrorMessage } from '@/lib/errors'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, token, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,18 +20,42 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const data = await apiLogin(email, password)
+      // Embed popup mode: hand the token back to the widget that opened us, then close.
+      const isEmbedPopup =
+        new URLSearchParams(window.location.search).get('embed') === '1'
+      if (isEmbedPopup && window.opener) {
+        window.opener.postMessage(
+          { type: 'lumina-auth', token: data.token, email: data.email },
+          window.location.origin,
+        )
+        window.close()
+        return
+      }
       login(data.token, data.email)
       navigate('/chat')
     } catch (err: unknown) {
-      if (err instanceof Response) {
-        const body = await err.json().catch(() => ({})) as { detail?: string }
-        setError(body.detail ?? 'Invalid email or password.')
-      } else {
-        setError('Something went wrong. Please try again.')
-      }
+      setError(await getErrorMessage(err, 'Invalid email or password.'))
     } finally {
       setLoading(false)
     }
+  }
+
+  const isEmbedPopup =
+    new URLSearchParams(window.location.search).get('embed') === '1'
+
+  // Already signed in: send the user to chat instead of showing the login form.
+  // (Skip the redirect in embed-popup mode — that flow closes itself after login.)
+  if (token && !isEmbedPopup) {
+    return <Navigate to="/chat" replace />
+  }
+
+  // Avoid flashing the form while we're still checking the stored session.
+  if (authLoading) {
+    return (
+      <div className="app-bg flex h-screen w-screen items-center justify-center">
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+      </div>
+    )
   }
 
   return (

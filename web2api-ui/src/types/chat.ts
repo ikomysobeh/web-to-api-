@@ -101,6 +101,7 @@ export interface ApiConversation {
   user_id: number;
   title: string;
   model: string;        // e.g. "gemini-3-flash"
+  agent_id?: string | null;   // agent bound to this conversation, if any
   message_count: number;
   created_at: string;   // ISO 8601
   updated_at: string;
@@ -147,6 +148,38 @@ export interface Suggestion {
   id: string;
   question: string;
   sort_order?: number;
+}
+
+export interface EmbedConfigAppearance {
+  title?: string;
+  greeting?: string;
+  accentColor?: string;
+  position?: "bottom-right" | "bottom-left";
+  theme?: "dark" | "light";
+}
+
+export interface EmbedConfig {
+  id: string;
+  embed_key: string;
+  agent_id: string;
+  agent_name?: string;
+  allowed_domains: string[];
+  config: EmbedConfigAppearance;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmbedCreate {
+  agent_id: string;
+  allowed_domains?: string[];
+  config?: EmbedConfigAppearance;
+}
+
+export interface EmbedUpdate {
+  allowed_domains?: string[];
+  config?: EmbedConfigAppearance;
+  is_active?: boolean;
 }
 
 export interface AdminUser {

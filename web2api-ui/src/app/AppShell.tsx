@@ -74,6 +74,7 @@ export interface ChatMessagesProps {
   myAgents: UserAgent[];
   selectedAgentId: string | null;
   onAgentChange: (id: string | null) => void;
+  agentLocked: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,12 @@ export default function AppShell() {
     setSelectedModelId(id);
   };
 
+  // The agent is bound to the conversation once chat starts — lock it there.
+  const activeConversation = activeConversationId
+    ? conversations.find((c) => c.id === activeConversationId)
+    : null;
+  const activeAgentId = activeConversation?.agent_id ?? null;
+
   return (
     <TooltipProvider>
       <div className="app-bg flex h-screen w-screen overflow-hidden text-foreground">
@@ -203,8 +210,9 @@ export default function AppShell() {
                 isLoadingMore={isLoadingMoreMessages}
                 availableModels={availableModels}
                 myAgents={myAgents}
-                selectedAgentId={selectedAgentId}
+                selectedAgentId={activeAgentId}
                 onAgentChange={setSelectedAgentId}
+                agentLocked
               />
             ) : (
               <ChatHome

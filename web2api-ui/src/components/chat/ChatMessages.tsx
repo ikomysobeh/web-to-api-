@@ -8,96 +8,22 @@ import type { ChatMessagesProps } from "@/app/AppShell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ChatInput } from "./ChatInput";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function InlineText({ text }: { text: string }) {
-  const segments = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-
-  return (
-    <>
-      {segments.map((seg, i) => {
-        if (seg.startsWith("**") && seg.endsWith("**")) {
-          return (
-            <strong key={i} className="font-semibold text-zinc-100">
-              {seg.slice(2, -2)}
-            </strong>
-          );
-        }
-
-        if (seg.startsWith("`") && seg.endsWith("`")) {
-          return (
-            <code
-              key={i}
-              className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[0.8em] text-violet-300"
-            >
-              {seg.slice(1, -1)}
-            </code>
-          );
-        }
-
-        return <span key={i}>{seg}</span>;
-      })}
-    </>
-  );
-}
-
-function MessageContent({ content }: { content: string }) {
-  const blocks = content.split(/(```[\s\S]*?```)/g);
-
-  return (
-    <div className="flex flex-col gap-2">
-      {blocks.map((block, bi) => {
-        if (block.startsWith("```") && block.endsWith("```")) {
-          const inner = block.slice(3, -3);
-          const newline = inner.indexOf("\n");
-          const code = newline !== -1 ? inner.slice(newline + 1) : inner;
-          const lang = newline !== -1 ? inner.slice(0, newline).trim() : "";
-
-          return (
-            <div
-              key={bi}
-              className="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800"
-            >
-              {lang && (
-                <div className="border-b border-zinc-800 px-4 py-1.5 text-xs font-medium text-zinc-500">
-                  {lang}
-                </div>
-              )}
-              <pre className="overflow-x-auto p-4 text-xs leading-relaxed text-zinc-200">
-                <code>{code.trimEnd()}</code>
-              </pre>
-            </div>
-          );
-        }
-
-        const lines = block.split("\n");
-
-        return (
-          <p key={bi} className="leading-relaxed">
-            {lines.map((line, li) => (
-              <span key={li}>
-                {li > 0 && <br />}
-                <InlineText text={line} />
-              </span>
-            ))}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
 function MessageBubble({
   message,
   userInitials,
+  isLast,
   onDelete,
   onSendMessage,
 }: {
   message: ChatMessage;
   userInitials: string;
+  isLast: boolean;
   onDelete: () => void;
   onSendMessage: (content: string) => void;
 }) {
@@ -200,7 +126,7 @@ function MessageBubble({
               </div>
             </div>
           ) : (
-            <MessageContent content={message.content} />
+            <MarkdownMessage content={message.content} />
           )}
         </div>
 
@@ -238,7 +164,7 @@ function MessageBubble({
                 )}
               </button>
 
-              {isUser && !editing && (
+              {isUser && isLast && !editing && (
                 <button
                   type="button"
                   aria-label="Edit message"
@@ -281,6 +207,7 @@ export function ChatMessages({
   myAgents,
   selectedAgentId,
   onAgentChange,
+  agentLocked,
 }: ChatMessagesProps) {
   const { user } = useAuth();
   const userInitials = user?.email
@@ -362,15 +289,26 @@ export function ChatMessages({
               </p>
             </div>
           ) : (
-            session.messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                userInitials={userInitials}
-                onDelete={() => setConfirmMsgId(msg.id)}
-                onSendMessage={onSendMessage}
-              />
-            ))
+            (() => {
+              // Index of the most recent USER message — the only one that stays editable.
+              let lastUserIndex = -1;
+              for (let i = session.messages.length - 1; i >= 0; i--) {
+                if (session.messages[i].role === "user") {
+                  lastUserIndex = i;
+                  break;
+                }
+              }
+              return session.messages.map((msg, i) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  userInitials={userInitials}
+                  isLast={i === lastUserIndex}
+                  onDelete={() => setConfirmMsgId(msg.id)}
+                  onSendMessage={onSendMessage}
+                />
+              ));
+            })()
           )}
 
           <div ref={bottomRef} className="h-1" />
@@ -387,6 +325,7 @@ export function ChatMessages({
             myAgents={myAgents}
             selectedAgentId={selectedAgentId}
             onAgentChange={onAgentChange}
+            agentLocked={agentLocked}
           />
         </div>
       </div>
