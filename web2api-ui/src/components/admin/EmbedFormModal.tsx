@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useAdminStore } from "@/stores/adminStore";
@@ -98,7 +99,7 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
         role="dialog"
         aria-modal="true"
         className={cn(
-          "glass-strong fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col",
+          "glass-strong fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col",
           "rounded-2xl p-6",
         )}
       >
@@ -120,18 +121,14 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
 
           {!embed && (
             <Field label="Agent" required>
-              <select
+              <ThemedSelect
                 value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
-                className={INPUT_CLS}
-              >
-                <option value="">Select an agent…</option>
-                {activeAgents.map((a) => (
-                  <option key={a.id} value={a.id} className="bg-zinc-900">
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setAgentId}
+                options={[
+                  { value: "", label: "Select an agent…" },
+                  ...activeAgents.map((a) => ({ value: a.id, label: a.name })),
+                ]}
+              />
             </Field>
           )}
 
@@ -175,22 +172,26 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
             </Field>
 
             <Field label="Theme">
-              <select value={theme} onChange={(e) => setTheme(e.target.value as "dark" | "light")} className={INPUT_CLS}>
-                <option value="dark" className="bg-zinc-900">Dark</option>
-                <option value="light" className="bg-zinc-900">Light</option>
-              </select>
+              <ThemedSelect
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: "dark", label: "Dark" },
+                  { value: "light", label: "Light" },
+                ]}
+              />
             </Field>
           </div>
 
           <Field label="Bubble position">
-            <select
+            <ThemedSelect
               value={position}
-              onChange={(e) => setPosition(e.target.value as "bottom-right" | "bottom-left")}
-              className={INPUT_CLS}
-            >
-              <option value="bottom-right" className="bg-zinc-900">Bottom right</option>
-              <option value="bottom-left" className="bg-zinc-900">Bottom left</option>
-            </select>
+              onChange={setPosition}
+              options={[
+                { value: "bottom-right", label: "Bottom right" },
+                { value: "bottom-left", label: "Bottom left" },
+              ]}
+            />
           </Field>
 
           <SectionLabel>Access</SectionLabel>
@@ -266,6 +267,125 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
           </div>
         </form>
       </div>
+    </>
+  );
+}
+
+// Custom dropdown to replace native <select> — native options render with
+// unstyleable browser chrome (white background, blue highlight) that clashes
+// with the app's dark glass theme. Portaled + positioned like AgentDropdown/
+// ModelDropdown elsewhere in the app, so it isn't clipped by this modal's
+// overflow-y-auto form.
+function ThemedSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string }[];
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  function handleToggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    }
+    setOpen((v) => !v);
+  }
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        onClick={handleToggle}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          INPUT_CLS,
+          "flex items-center justify-between gap-2 text-left",
+          disabled && "cursor-not-allowed opacity-50",
+        )}
+      >
+        <span className={cn("truncate", !selected && "text-zinc-500")}>
+          {selected ? selected.label : "Select…"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 text-zinc-500 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            style={menuStyle}
+            className="glass-strong max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-2xl"
+          >
+            {options.map((opt) => {
+              const active = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                    active ? "bg-violet-500/15 text-violet-200" : "text-zinc-300 hover:bg-white/5",
+                  )}
+                >
+                  <span className="flex size-4 shrink-0 items-center justify-center">
+                    {active && <Check className="size-3.5 text-violet-400" />}
+                  </span>
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

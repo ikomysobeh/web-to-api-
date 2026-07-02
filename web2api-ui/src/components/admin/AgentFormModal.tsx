@@ -67,7 +67,7 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
         aria-modal="true"
         aria-labelledby="agent-form-title"
         className={cn(
-          "glass-strong fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
+          "glass-strong fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
           "rounded-2xl p-6",
         )}
       >

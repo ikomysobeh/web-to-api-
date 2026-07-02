@@ -81,6 +81,16 @@ export interface ConversationStore {
 }
 
 // ---------------------------------------------------------------------------
+// Sidebar collapse persistence (survives reloads)
+// ---------------------------------------------------------------------------
+
+const SIDEBAR_COLLAPSED_KEY = "lumina_sidebar_collapsed";
+
+function getStoredSidebarCollapsed(): boolean {
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+// ---------------------------------------------------------------------------
 // Initial state values (reused in resetForLogout)
 // ---------------------------------------------------------------------------
 
@@ -94,7 +104,7 @@ const initialState = {
   myAgents: [] as UserAgent[],
   isLoadingMyAgents: false,
   selectedAgentId: null as string | null,
-  sidebarCollapsed: false,
+  sidebarCollapsed: getStoredSidebarCollapsed(),
   mobileSidebarOpen: false,
   selectedModelId: DEFAULT_MODEL as AIModelId,
   showCookieModal: false,
@@ -493,7 +503,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // ── UI setters ────────────────────────────────────────────────────────────
 
-  setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+  setSidebarCollapsed: (v) => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, v ? "1" : "0");
+    set({ sidebarCollapsed: v });
+  },
   setMobileSidebarOpen: (v) => set({ mobileSidebarOpen: v }),
   setSelectedModelId: (id) => set({ selectedModelId: id }),
   setSelectedAgentId: (id) => set({ selectedAgentId: id }),
@@ -513,5 +526,5 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // ── Reset on logout ───────────────────────────────────────────────────────
 
-  resetForLogout: () => set(initialState),
+  resetForLogout: () => set({ ...initialState, sidebarCollapsed: getStoredSidebarCollapsed() }),
 }));

@@ -66,7 +66,7 @@ export function SuggestionsModal({ agentId, agentName, initialQuestions, onClose
         aria-modal="true"
         aria-labelledby="suggestions-title"
         className={cn(
-          "glass-strong fixed left-1/2 top-1/2 z-50 flex w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col",
+          "glass-strong fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col",
           "max-h-[85vh] rounded-2xl p-6",
         )}
       >

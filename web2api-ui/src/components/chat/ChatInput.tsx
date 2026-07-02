@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowUp,
-  Check,
-  ChevronDown,
   Mic,
   MicOff,
 } from "lucide-react";
@@ -11,7 +8,6 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 import type { AIModelId, ApiModel, UserAgent } from "@/types/chat";
 import { AgentDropdown } from "./AgentDropdown";
-import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -35,179 +31,16 @@ export interface ChatInputProps {
   agentLocked?: boolean;
 }
 
-const DROPDOWN_WIDTH = 256;
-const DROPDOWN_EST_HEIGHT = 320;
-
-function ModelDropdown({
-  selectedModelId,
-  onModelChange,
-  disabled,
-  models,
-}: {
-  selectedModelId: AIModelId;
-  onModelChange: (id: AIModelId) => void;
-  disabled?: boolean;
-  models: ApiModel[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const selectedModel =
-    models.find((m) => m.id === selectedModelId) ?? models[0];
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        !triggerRef.current?.contains(target) &&
-        !menuRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-    function handleEscape(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
-
-  function handleToggle() {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const GAP = 8;
-      const spaceBelow = window.innerHeight - rect.bottom - GAP;
-      const spaceAbove = rect.top - GAP;
-      const openDown = spaceBelow >= spaceAbove;
-      if (openDown) {
-        setMenuStyle({
-          top: rect.bottom + GAP,
-          left: rect.left,
-          maxHeight: Math.min(DROPDOWN_EST_HEIGHT, spaceBelow),
-          overflowY: "auto",
-        });
-      } else {
-        setMenuStyle({
-          bottom: window.innerHeight - rect.top + GAP,
-          left: rect.left,
-          maxHeight: Math.min(DROPDOWN_EST_HEIGHT, spaceAbove),
-          overflowY: "auto",
-        });
-      }
-    }
-    setOpen((v) => !v);
-  }
-
-  function selectModel(id: AIModelId) {
-    onModelChange(id);
-    setOpen(false);
-  }
-
-  const menu = open
-    ? createPortal(
-        <div
-          ref={menuRef}
-          role="menu"
-          style={{ position: "fixed", width: DROPDOWN_WIDTH, zIndex: 9999, ...menuStyle }}
-          className="glass-strong rounded-2xl p-2 shadow-2xl"
-        >
-          <div className="space-y-1">
-            {models.map((model) => {
-              const active = model.id === selectedModelId;
-              return (
-                <button
-                  key={model.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={active}
-                  disabled={!model.available}
-                  onClick={() => model.available && selectModel(model.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-                    model.available
-                      ? "hover:bg-white/5 focus-visible:bg-white/5 focus-visible:outline-none"
-                      : "cursor-not-allowed opacity-40",
-                  )}
-                >
-                  <span className="flex size-4 shrink-0 items-center justify-center">
-                    {active && <Check className="size-4 text-violet-400" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-zinc-100">
-                      {model.name}
-                    </span>
-                    <span className="block truncate text-xs text-zinc-500">
-                      {model.available ? model.description : "Connect Gemini to use"}
-                    </span>
-                  </span>
-                  {model.badge && (
-                    <span className="shrink-0 rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
-                      {model.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        onClick={handleToggle}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`Current model: ${selectedModel.name}`}
-        className={cn(
-          "inline-flex max-w-full items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5",
-          "text-xs font-semibold text-zinc-100 transition-colors",
-          "hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
-          open && "bg-zinc-700",
-          disabled && "pointer-events-none opacity-50",
-        )}
-      >
-        <span className="max-w-36 truncate">{selectedModel.name}</span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 text-zinc-400 transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-      {menu}
-    </>
-  );
-}
-
 export function ChatInput({
   onSubmit,
   placeholder = "Ask Lumina anything…",
   disabled = false,
   initialValue = "",
-  selectedModelId,
-  onModelChange,
-  availableModels,
   myAgents = [],
   selectedAgentId = null,
   onAgentChange,
   agentLocked = false,
 }: ChatInputProps) {
-  // Fall back to static AI_MODELS while API models are loading
-  const models: ApiModel[] = availableModels?.length
-    ? availableModels
-    : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
   const [value, setValue] = useState(initialValue);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -255,8 +88,8 @@ export function ChatInput({
           disabled && "opacity-60",
         )}
       >
-        <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
-          {myAgents.length > 0 && (!agentLocked || selectedAgentId) && (
+        {myAgents.length > 0 && (!agentLocked || selectedAgentId) && (
+          <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
             <AgentDropdown
               myAgents={myAgents}
               selectedAgentId={selectedAgentId}
@@ -265,14 +98,8 @@ export function ChatInput({
               dropUp
               locked={agentLocked}
             />
-          )}
-          <ModelDropdown
-            selectedModelId={selectedModelId}
-            onModelChange={onModelChange}
-            disabled={disabled || !!selectedAgentId}
-            models={models}
-          />
-        </div>
+          </div>
+        )}
 
         <div className="flex items-end gap-1">
 

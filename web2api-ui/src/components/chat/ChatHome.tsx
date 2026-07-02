@@ -1,20 +1,21 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowUp,
-  Check,
-  ChevronDown,
+  Compass,
+  Lightbulb,
+  MessageCircleQuestion,
   Mic,
   MicOff,
+  Rocket,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 import type { ChatHomeProps } from "@/app/AppShell";
-import type { AIModelId, ApiModel, Suggestion } from "@/types/chat";
+import type { Suggestion } from "@/types/chat";
 import { getMyAgentSuggestions } from "@/services/api";
 import { AgentDropdown } from "./AgentDropdown";
-import { AI_MODELS } from "@/data/mockChats";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,173 +27,23 @@ import {
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// ModelChip — same compact cycler as in ChatInput
+// Suggestion card accents — cycled per card for a colorful, varied grid
 // ---------------------------------------------------------------------------
 
-const DROPDOWN_WIDTH = 256;
-const DROPDOWN_EST_HEIGHT = 320;
-
-function ModelDropdown({
-  selectedModelId,
-  onModelChange,
-  disabled,
-  models,
-}: {
-  selectedModelId: AIModelId;
-  onModelChange: (id: AIModelId) => void;
-  disabled?: boolean;
-  models: ApiModel[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const selectedModel = models.find((m) => m.id === selectedModelId) ?? models[0];
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        !triggerRef.current?.contains(target) &&
-        !menuRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-    function handleEscape(event: KeyboardEvent | globalThis.KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
-
-  function handleToggle() {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const GAP = 8;
-      const spaceBelow = window.innerHeight - rect.bottom - GAP;
-      const spaceAbove = rect.top - GAP;
-      const openDown = spaceBelow >= spaceAbove;
-      if (openDown) {
-        setMenuStyle({
-          top: rect.bottom + GAP,
-          left: rect.left,
-          maxHeight: Math.min(DROPDOWN_EST_HEIGHT, spaceBelow),
-          overflowY: "auto",
-        });
-      } else {
-        setMenuStyle({
-          bottom: window.innerHeight - rect.top + GAP,
-          left: rect.left,
-          maxHeight: Math.min(DROPDOWN_EST_HEIGHT, spaceAbove),
-          overflowY: "auto",
-        });
-      }
-    }
-    setOpen((v) => !v);
-  }
-
-  function selectModel(id: AIModelId) {
-    onModelChange(id);
-    setOpen(false);
-  }
-
-  const menu = open
-    ? createPortal(
-        <div
-          ref={menuRef}
-          role="menu"
-          style={{ position: "fixed", width: DROPDOWN_WIDTH, zIndex: 9999, ...menuStyle }}
-          className="glass-strong rounded-2xl p-2 shadow-2xl"
-        >
-          <div className="space-y-1">
-            {models.map((model) => {
-              const active = model.id === selectedModelId;
-              return (
-                <button
-                  key={model.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={active}
-                  disabled={!model.available}
-                  onClick={() => model.available && selectModel(model.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-                    model.available
-                      ? "hover:bg-white/5 focus-visible:bg-white/5 focus-visible:outline-none"
-                      : "cursor-not-allowed opacity-40",
-                  )}
-                >
-                  <span className="flex size-4 shrink-0 items-center justify-center">
-                    {active && <Check className="size-4 text-violet-400" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-zinc-100">
-                      {model.name}
-                    </span>
-                    <span className="block truncate text-xs text-zinc-500">
-                      {model.available ? model.description : "Connect Gemini to use"}
-                    </span>
-                  </span>
-                  {model.badge && (
-                    <span className="shrink-0 rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
-                      {model.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        onClick={handleToggle}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`Current model: ${selectedModel.name}`}
-        className={cn(
-          "inline-flex max-w-full items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5",
-          "text-xs font-semibold text-zinc-100 transition-colors",
-          "hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
-          open && "bg-zinc-700",
-          disabled && "pointer-events-none opacity-50",
-        )}
-      >
-        <span className="max-w-36 truncate">{selectedModel.name}</span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 text-zinc-400 transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-      {menu}
-    </>
-  );
-}
+const SUGGESTION_ACCENTS = [
+  { icon: Sparkles, iconBg: "bg-violet-500/15 text-violet-300", ring: "hover:ring-violet-400/30" },
+  { icon: Lightbulb, iconBg: "bg-amber-500/15 text-amber-300", ring: "hover:ring-amber-400/30" },
+  { icon: MessageCircleQuestion, iconBg: "bg-sky-500/15 text-sky-300", ring: "hover:ring-sky-400/30" },
+  { icon: Wand2, iconBg: "bg-emerald-500/15 text-emerald-300", ring: "hover:ring-emerald-400/30" },
+  { icon: Rocket, iconBg: "bg-rose-500/15 text-rose-300", ring: "hover:ring-rose-400/30" },
+  { icon: Compass, iconBg: "bg-indigo-500/15 text-indigo-300", ring: "hover:ring-indigo-400/30" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // ChatHome — Gemini-style empty / welcome state
 // ---------------------------------------------------------------------------
 
-export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabled = false, availableModels, myAgents, selectedAgentId, onAgentChange }: ChatHomeProps) {
-  const models: ApiModel[] = availableModels?.length
-    ? availableModels
-    : AI_MODELS.map((m) => ({ ...m, badge: m.badge ?? "", available: true }));
-
+export function ChatHome({ onSendMessage, disabled = false, myAgents, selectedAgentId, onAgentChange }: ChatHomeProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -287,7 +138,7 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
             </p>
           </div>
 
-          {/* ── Prompt input with model chip ─────────────────────────────── */}
+          {/* ── Prompt input ─────────────────────────────────────────────── */}
           <div
             className={cn(
               "glass flex w-full flex-col rounded-3xl px-3 pb-3 pt-3",
@@ -295,22 +146,16 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
               disabled && "opacity-60",
             )}
           >
-            <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
-              {myAgents.length > 0 && (
+            {myAgents.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 px-1 pb-1.5">
                 <AgentDropdown
                   myAgents={myAgents}
                   selectedAgentId={selectedAgentId ?? null}
                   onAgentChange={onAgentChange}
                   disabled={disabled}
                 />
-              )}
-              <ModelDropdown
-                selectedModelId={selectedModelId}
-                onModelChange={onModelChange}
-                disabled={disabled || !!selectedAgentId}
-                models={models}
-              />
-            </div>
+              </div>
+            )}
 
             <div className="flex items-end gap-1">
               <Textarea
@@ -379,24 +224,39 @@ export function ChatHome({ onSendMessage, selectedModelId, onModelChange, disabl
             </div>
           </div>
 
-          {/* ── Suggestion chips (for the selected agent) ───────────────── */}
+          {/* ── Suggestion cards (for the selected agent) ───────────────── */}
           {suggestions.length > 0 && (
-            <div className="flex w-full flex-wrap justify-center gap-2">
-              {suggestions.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => applySuggestion(s.question)}
-                  className={cn(
-                    "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-left text-sm text-zinc-300",
-                    "transition-colors hover:border-violet-400/30 hover:bg-white/10 hover:text-zinc-100",
-                    "disabled:pointer-events-none disabled:opacity-50",
-                  )}
-                >
-                  {s.question}
-                </button>
-              ))}
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+              {suggestions.map((s, i) => {
+                const accent = SUGGESTION_ACCENTS[i % SUGGESTION_ACCENTS.length];
+                const Icon = accent.icon;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => applySuggestion(s.question)}
+                    className={cn(
+                      "glass group flex items-start gap-3 rounded-2xl p-4 text-left ring-1 ring-inset ring-white/10",
+                      "transition-all hover:-translate-y-0.5 hover:bg-white/[0.06] hover:shadow-lg hover:shadow-black/20",
+                      accent.ring,
+                      "disabled:pointer-events-none disabled:opacity-50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-8 shrink-0 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
+                        accent.iconBg,
+                      )}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="pt-0.5 text-sm text-zinc-300 transition-colors group-hover:text-zinc-100">
+                      {s.question}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
