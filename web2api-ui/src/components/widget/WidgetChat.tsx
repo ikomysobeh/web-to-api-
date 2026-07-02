@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, MessageCircleQuestion, Sparkles } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/MarkdownMessage";
+import type { Suggestion } from "@/types/chat";
 
 export interface WidgetMessage {
   id: string;
@@ -15,10 +16,20 @@ interface WidgetChatProps {
   theme: "dark" | "light";
   messages: WidgetMessage[];
   busy: boolean;
+  suggestions?: Suggestion[];
   onSend: (text: string) => void;
 }
 
-export function WidgetChat({ title, greeting, accentColor, theme, messages, busy, onSend }: WidgetChatProps) {
+export function WidgetChat({
+  title,
+  greeting,
+  accentColor,
+  theme,
+  messages,
+  busy,
+  suggestions = [],
+  onSend,
+}: WidgetChatProps) {
   const [value, setValue] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const light = theme === "light";
@@ -39,6 +50,10 @@ export function WidgetChat({ title, greeting, accentColor, theme, messages, busy
       send();
     }
   }
+  function sendSuggestion(question: string) {
+    if (busy) return;
+    onSend(question);
+  }
 
   return (
     <div className={light ? "flex h-full flex-col bg-white text-zinc-900" : "flex h-full flex-col bg-zinc-950 text-zinc-100"}>
@@ -56,7 +71,29 @@ export function WidgetChat({ title, greeting, accentColor, theme, messages, busy
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
-          <div className={light ? "text-sm text-zinc-500" : "text-sm text-zinc-400"}>{greeting}</div>
+          <div className="flex flex-col gap-3">
+            <div className={light ? "text-sm text-zinc-500" : "text-sm text-zinc-400"}>{greeting}</div>
+            {suggestions.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => sendSuggestion(s.question)}
+                    disabled={busy}
+                    className={
+                      light
+                        ? "flex items-start gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-50"
+                        : "flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left text-sm text-zinc-300 transition-colors hover:bg-white/[0.07] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-50"
+                    }
+                  >
+                    <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" style={{ color: accentColor }} />
+                    <span>{s.question}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {messages.map((m) => (
           <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>

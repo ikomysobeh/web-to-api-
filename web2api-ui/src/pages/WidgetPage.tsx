@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getEmbedBootstrap, embedChatStream, getCookiesStatus } from "@/services/api";
 import { WidgetChat, type WidgetMessage } from "@/components/widget/WidgetChat";
-import type { EmbedConfigAppearance } from "@/types/chat";
+import type { EmbedConfigAppearance, Suggestion } from "@/types/chat";
 
 const AUTH_BASE_FOR_LOGIN =
   (import.meta.env.VITE_WIDGET_URL as string | undefined)?.replace(/\/$/, "") ??
@@ -20,6 +20,7 @@ export default function WidgetPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const [appearance, setAppearance] = useState<EmbedConfigAppearance>({});
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [geminiConnected, setGeminiConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectMsg, setConnectMsg] = useState("");
@@ -52,6 +53,7 @@ export default function WidgetPage() {
     getEmbedBootstrap(token, embedKey)
       .then((data) => {
         setAppearance(data.config ?? {});
+        setSuggestions(data.suggestions ?? []);
         setPhase("ready");
       })
       .catch(async (err) => {
@@ -231,6 +233,7 @@ export default function WidgetPage() {
           theme={theme}
           messages={messages}
           busy={busy}
+          suggestions={suggestions}
           onSend={handleSend}
         />
       </div>

@@ -1757,6 +1757,7 @@ def embed_bootstrap(embed_key: str, request: Request, user = Depends(get_current
         "success": True,
         "agent": {"name": agent["name"], "description": agent["description"], "model": agent["model"]},
         "config": embed["config"],
+        "suggestions": get_saved_suggestions(embed["agent_id"]),
     }
 
 

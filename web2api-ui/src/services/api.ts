@@ -660,6 +660,7 @@ export interface EmbedBootstrap {
   success: boolean;
   agent: { name: string; description: string | null; model: string };
   config: import("@/types/chat").EmbedConfigAppearance;
+  suggestions: import("@/types/chat").Suggestion[];
 }
 
 export async function getEmbedBootstrap(

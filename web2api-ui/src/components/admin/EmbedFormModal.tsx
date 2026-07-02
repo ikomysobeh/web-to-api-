@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useAdminStore } from "@/stores/adminStore";
@@ -27,9 +27,27 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
     embed?.config?.position ?? "bottom-right",
   );
   const [theme, setTheme] = useState<"dark" | "light">(embed?.config?.theme ?? "dark");
-  const [domains, setDomains] = useState(embed?.allowed_domains?.join(", ") ?? "");
+  const [domains, setDomains] = useState<string[]>(embed?.allowed_domains ?? []);
+  const [domainDraft, setDomainDraft] = useState("");
   const [isActive, setIsActive] = useState(embed?.is_active ?? true);
   const [error, setError] = useState("");
+
+  function addDomain(raw: string) {
+    const value = raw.trim().replace(/,$/, "");
+    if (value && !domains.includes(value)) setDomains((d) => [...d, value]);
+    setDomainDraft("");
+  }
+  function removeDomain(value: string) {
+    setDomains((d) => d.filter((x) => x !== value));
+  }
+  function handleDomainKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addDomain(domainDraft);
+    } else if (e.key === "Backspace" && !domainDraft && domains.length > 0) {
+      setDomains((d) => d.slice(0, -1));
+    }
+  }
 
   useEffect(() => {
     if (agents.length === 0) void loadAgents();
@@ -51,10 +69,9 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
       return;
     }
 
-    const allowed_domains = domains
-      .split(",")
-      .map((d) => d.trim())
-      .filter(Boolean);
+    const allowed_domains = domainDraft.trim()
+      ? [...domains, domainDraft.trim().replace(/,$/, "")]
+      : domains;
     const config = { title, greeting, accentColor, position, theme };
 
     try {
@@ -98,7 +115,9 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 overflow-y-auto">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5 overflow-y-auto">
+          <SectionLabel>Agent &amp; content</SectionLabel>
+
           {!embed && (
             <Field label="Agent" required>
               <select
@@ -123,6 +142,24 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
           <Field label="Greeting message">
             <input type="text" value={greeting} onChange={(e) => setGreeting(e.target.value)} className={INPUT_CLS} />
           </Field>
+
+          <SectionLabel>Appearance</SectionLabel>
+
+          <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent">
+            <span className="absolute left-3 top-2.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+              Preview
+            </span>
+            <div
+              className={cn(
+                "absolute flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-white shadow-lg",
+                position === "bottom-right" ? "bottom-3 right-3" : "bottom-3 left-3",
+              )}
+              style={{ backgroundColor: accentColor }}
+            >
+              <MessageCircle className="size-3.5" />
+              {title || "Chat"}
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Accent color">
@@ -156,14 +193,36 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
             </select>
           </Field>
 
-          <Field label="Allowed domains (comma-separated, blank = any)">
-            <input
-              type="text"
-              value={domains}
-              onChange={(e) => setDomains(e.target.value)}
-              placeholder="example.com, dashboard.acme.com"
-              className={INPUT_CLS}
-            />
+          <SectionLabel>Access</SectionLabel>
+
+          <Field label="Allowed domains" hint="Press Enter after each one · leave empty to allow any site">
+            <div className={cn(INPUT_CLS, "flex flex-wrap items-center gap-1.5 py-1.5")}>
+              {domains.map((d) => (
+                <span
+                  key={d}
+                  className="flex items-center gap-1 rounded-md bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200 ring-1 ring-inset ring-violet-400/20"
+                >
+                  {d}
+                  <button
+                    type="button"
+                    onClick={() => removeDomain(d)}
+                    aria-label={`Remove ${d}`}
+                    className="text-violet-300/70 transition-colors hover:text-violet-100"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={domainDraft}
+                onChange={(e) => setDomainDraft(e.target.value)}
+                onKeyDown={handleDomainKeyDown}
+                onBlur={() => domainDraft.trim() && addDomain(domainDraft)}
+                placeholder={domains.length ? "" : "example.com"}
+                className="min-w-[120px] flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+              />
+            </div>
           </Field>
 
           {embed && (
@@ -211,7 +270,17 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <label className="mb-1.5 block text-xs font-medium text-zinc-400">
@@ -219,6 +288,15 @@ function Field({ label, required, children }: { label: string; required?: boolea
         {required && <span className="ml-0.5 text-red-400">*</span>}
       </label>
       {children}
+      {hint && <p className="mt-1.5 text-[11px] text-zinc-600">{hint}</p>}
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="border-t border-white/5 pt-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 first:border-t-0 first:pt-0">
+      {children}
+    </p>
   );
 }
