@@ -14,7 +14,7 @@ export function MarkdownMessage({ content, className }: { content: string; class
   const cleaned = useMemo(() => cleanMdxTags(content), [content]);
 
   return (
-    <div className={cn("flex flex-col gap-2 leading-relaxed [word-break:break-word]", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-2 leading-relaxed [word-break:break-word]", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

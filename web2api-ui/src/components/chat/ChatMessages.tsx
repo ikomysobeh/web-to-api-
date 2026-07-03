@@ -51,7 +51,7 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        "group flex w-full gap-3",
+        "group flex w-full min-w-0 gap-3",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
@@ -69,7 +69,7 @@ function MessageBubble({
 
       <div
         className={cn(
-          "flex max-w-[78%] flex-col gap-1.5",
+          "flex min-w-0 max-w-[78%] flex-col gap-1.5",
           isUser ? "items-end" : "items-start",
         )}
       >
@@ -248,9 +248,9 @@ export function ChatMessages({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pb-8 pt-6 sm:px-6">
+        <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-8 px-4 pb-8 pt-6 sm:px-6">
 
           {hasMore && (
             <div className="flex justify-center">

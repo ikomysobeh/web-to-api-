@@ -198,7 +198,7 @@ export default function AppShell() {
             onNewChat={newChat}
           />
 
-          <main className="flex-1 overflow-hidden">
+          <main className="min-w-0 flex-1 overflow-hidden">
             {activeSession ? (
               <ChatMessages
                 session={activeSession}
