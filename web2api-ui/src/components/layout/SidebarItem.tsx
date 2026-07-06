@@ -66,7 +66,7 @@ export function SidebarItem({
   // ── Edit mode ─────────────────────────────────────────────────────────────
   if (isEditing) {
     return (
-      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-xl bg-zinc-800/70 px-3 py-2 ring-1 ring-violet-500/40">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-xl bg-zinc-800/70 px-3 py-2 ring-1 ring-orange-500/40">
         <input
           ref={inputRef}
           value={editValue}
@@ -112,13 +112,13 @@ export function SidebarItem({
       className={cn(
         "group relative grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 overflow-hidden rounded-xl py-2 pl-3 pr-1.5 text-sm transition-colors duration-100",
         active
-          ? "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/5 text-white ring-1 ring-inset ring-violet-500/15"
+          ? "bg-gradient-to-r from-orange-600/20 to-amber-600/5 text-white ring-1 ring-inset ring-orange-500/15"
           : "text-zinc-400 hover:bg-white/5 hover:text-zinc-100",
       )}
     >
       {/* Violet accent bar when active */}
       {active && (
-        <span className="pointer-events-none absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-violet-400 to-fuchsia-400" />
+        <span className="pointer-events-none absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-orange-400 to-amber-400" />
       )}
 
       <span className="min-w-0 truncate leading-snug" title={title}>

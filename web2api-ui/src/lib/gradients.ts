@@ -1,16 +1,16 @@
 // Deterministic gradient + initials helpers for colorful avatars across the admin UI.
 
-// A single cool jewel-tone family (violet → fuchsia → indigo → sky) so avatars
-// stay vivid yet harmonize with the aurora glass theme — no clashing warm hues.
+// A single warm ember family (orange → amber → red → yellow) so avatars stay
+// vivid yet harmonize with the Little Caesars orange-on-black aurora theme.
 const GRADIENTS = [
-  "from-violet-500 to-fuchsia-500",
-  "from-indigo-500 to-violet-500",
-  "from-blue-500 to-indigo-500",
-  "from-sky-500 to-blue-500",
-  "from-fuchsia-500 to-purple-500",
-  "from-purple-500 to-indigo-500",
-  "from-cyan-500 to-blue-500",
-  "from-violet-600 to-sky-500",
+  "from-orange-500 to-amber-500",
+  "from-amber-500 to-orange-600",
+  "from-red-500 to-orange-500",
+  "from-orange-600 to-yellow-500",
+  "from-amber-600 to-red-500",
+  "from-orange-500 to-red-500",
+  "from-yellow-500 to-orange-500",
+  "from-red-600 to-amber-500",
 ] as const;
 
 /** Pick a stable gradient class pair for a given seed string. */

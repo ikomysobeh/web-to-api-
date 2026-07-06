@@ -12,7 +12,7 @@ interface SuggestionsModalProps {
 }
 
 const INPUT_CLS =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/50";
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-orange-400/40 focus:outline-none focus:ring-1 focus:ring-orange-400/50";
 
 export function SuggestionsModal({ agentId, agentName, initialQuestions, onClose }: SuggestionsModalProps) {
   const { saveSuggestions, isSavingSuggestions } = useAdminStore();
@@ -117,7 +117,7 @@ export function SuggestionsModal({ agentId, agentName, initialQuestions, onClose
         <button
           type="button"
           onClick={addRow}
-          className="mt-3 inline-flex items-center gap-1.5 self-start rounded-xl px-3 py-2 text-sm text-violet-300 transition-colors hover:bg-white/10"
+          className="mt-3 inline-flex items-center gap-1.5 self-start rounded-xl px-3 py-2 text-sm text-orange-300 transition-colors hover:bg-white/10"
         >
           <Plus className="size-4" />
           Add question
@@ -137,7 +137,7 @@ export function SuggestionsModal({ agentId, agentName, initialQuestions, onClose
             type="button"
             onClick={() => void handleSave()}
             disabled={isSavingSuggestions}
-            className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+            className="rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-[0.98] disabled:opacity-50"
           >
             {isSavingSuggestions ? "Saving…" : "Approve & Save"}
           </button>

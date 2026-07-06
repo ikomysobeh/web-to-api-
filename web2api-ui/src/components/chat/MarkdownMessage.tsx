@@ -32,7 +32,7 @@ export function MarkdownMessage({ content, className }: { content: string; class
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-violet-400 underline underline-offset-2 hover:text-violet-300"
+              className="text-orange-400 underline underline-offset-2 hover:text-orange-300"
             >
               {children}
             </a>

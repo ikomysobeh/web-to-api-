@@ -5,6 +5,7 @@ import {
   MessageSquarePlus,
   Search,
   Shield,
+  Pizza,
   Sparkles,
   Trash2,
   X,
@@ -48,7 +49,7 @@ function CollapsedSidebarContent({
     <>
       {/* Logo mark */}
       <div className="flex shrink-0 flex-col items-center border-b border-white/5 py-3">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
+        <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 shadow-md shadow-orange-950/50">
           <Sparkles className="size-3.5 text-white" />
         </div>
       </div>
@@ -186,11 +187,11 @@ export function Sidebar({
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-3 py-3">
           <div className="flex select-none items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
-              <Sparkles className="size-3.5 text-white" />
+            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 shadow-md shadow-orange-950/50">
+              <Pizza className="size-3.5 text-white" />
             </div>
             <span className="text-sm font-semibold tracking-tight text-zinc-100">
-              Lumina AI
+              PNE LC AI
             </span>
           </div>
 
@@ -241,7 +242,7 @@ export function Sidebar({
         {/* ── Search input ─────────────────────────────────────────────────── */}
         {showSearch && (
           <div className="shrink-0 border-b border-white/5 px-3 py-2">
-            <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-inset ring-white/10 focus-within:ring-violet-400/40">
+            <div className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-inset ring-white/10 focus-within:ring-orange-400/40">
               <Search className="size-3.5 shrink-0 text-zinc-500" />
               <input
                 ref={searchInputRef}

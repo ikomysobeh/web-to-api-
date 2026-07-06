@@ -14,7 +14,7 @@ import type { ReactNode } from 'react'
 function Spinner() {
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-zinc-950">
-      <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+      <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
     </div>
   )
 }

@@ -42,16 +42,16 @@ export function AdminDashboard() {
   if (isLoadingAgents) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
       </div>
     );
   }
 
   const stats = [
-    { label: "Total Agents", value: total, icon: Bot, color: "text-violet-300" },
+    { label: "Total Agents", value: total, icon: Bot, color: "text-orange-300" },
     { label: "Active", value: active, icon: CheckCircle2, color: "text-emerald-300" },
-    { label: "Inactive", value: inactive, icon: PauseCircle, color: "text-sky-300" },
-    { label: "Users", value: users.length, icon: Users, color: "text-fuchsia-300" },
+    { label: "Inactive", value: inactive, icon: PauseCircle, color: "text-zinc-400" },
+    { label: "Users", value: users.length, icon: Users, color: "text-amber-300" },
   ];
 
   return (
@@ -59,13 +59,13 @@ export function AdminDashboard() {
       {/* ── Header band ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-5 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-violet-300/80">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-orange-300/80">
             <Sparkles className="size-3.5" />
             Admin console
           </div>
           <h2 className="mt-2.5 text-2xl font-semibold tracking-tight text-white">
             Welcome back,{" "}
-            <span className="text-violet-300">{firstName}</span>
+            <span className="text-orange-300">{firstName}</span>
           </h2>
           <p className="mt-1 max-w-md text-sm text-zinc-500">
             Manage your agents, knowledge bases, and user access — all from one place.
@@ -75,7 +75,7 @@ export function AdminDashboard() {
         <div className="flex shrink-0 flex-wrap gap-2.5">
           <Link
             to="/admin/agents"
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]"
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-orange-600 to-amber-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-orange-500 hover:to-amber-500 active:scale-[0.98]"
           >
             <Plus className="size-4" />
             New agent
@@ -114,7 +114,7 @@ export function AdminDashboard() {
           <h3 className="text-sm font-semibold text-zinc-100">Recent agents</h3>
           <Link
             to="/admin/agents"
-            className="flex items-center gap-1 text-xs font-medium text-violet-300 transition-colors hover:text-violet-200"
+            className="flex items-center gap-1 text-xs font-medium text-orange-300 transition-colors hover:text-orange-200"
           >
             View all
             <ArrowRight className="size-3.5" />
@@ -126,7 +126,7 @@ export function AdminDashboard() {
             <p className="text-sm text-zinc-500">No agents yet</p>
             <Link
               to="/admin/agents"
-              className="text-sm text-violet-300 transition-colors hover:text-violet-200"
+              className="text-sm text-orange-300 transition-colors hover:text-orange-200"
             >
               Create your first agent
             </Link>

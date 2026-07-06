@@ -58,7 +58,7 @@ function SuggestionCard({ prompt, onClick }: SuggestionCardProps) {
         className={cn(
           "flex size-8 items-center justify-center rounded-xl",
           "bg-zinc-800 text-zinc-400",
-          "group-hover:bg-violet-600/15 group-hover:text-violet-300",
+          "group-hover:bg-orange-600/15 group-hover:text-orange-300",
           "transition-colors duration-200",
         )}
       >

@@ -172,7 +172,7 @@ export function AgentDetailPage() {
   if (isLoadingAgent || !agent) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
       </div>
     );
   }
@@ -291,8 +291,8 @@ export function AgentDetailPage() {
           className={cn(
             "mb-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-6 py-8 transition-colors",
             isUploading
-              ? "cursor-default border-violet-400/40 bg-violet-500/10"
-              : "border-white/10 hover:border-violet-400/30 hover:bg-white/5",
+              ? "cursor-default border-orange-400/40 bg-orange-500/10"
+              : "border-white/10 hover:border-orange-400/30 hover:bg-white/5",
           )}
         >
           <input
@@ -304,7 +304,7 @@ export function AgentDetailPage() {
           />
           {isUploading ? (
             <>
-              <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+              <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
               <p className="text-sm text-zinc-400">Uploading…</p>
             </>
           ) : (
@@ -312,7 +312,7 @@ export function AgentDetailPage() {
               <Upload className="size-5 text-zinc-500" />
               <p className="text-sm text-zinc-400">
                 Drop a file or{" "}
-                <span className="text-violet-400">click to browse</span>
+                <span className="text-orange-400">click to browse</span>
               </p>
               <p className="text-xs text-zinc-600">.pdf · .docx · .txt · .md</p>
             </>
@@ -336,7 +336,7 @@ export function AgentDetailPage() {
         {/* Documents list */}
         {isLoadingDocs ? (
           <div className="flex h-20 items-center justify-center">
-            <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+            <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
           </div>
         ) : docs.length === 0 ? (
           <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10">
@@ -391,7 +391,7 @@ export function AgentDetailPage() {
               type="button"
               disabled={isGeneratingSuggestions}
               onClick={() => void handleGenerateSuggestions()}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-[0.98] disabled:opacity-50"
             >
               {isGeneratingSuggestions ? (
                 <>
@@ -468,7 +468,7 @@ export function AgentDetailPage() {
             </div>
             {isLoadingAvailable ? (
               <div className="flex h-20 items-center justify-center">
-                <div className="size-4 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+                <div className="size-4 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
               </div>
             ) : (
               <>
@@ -489,7 +489,7 @@ export function AgentDetailPage() {
                             checked={checked}
                             disabled={alreadyAssigned}
                             onChange={() => toggleUserSelection(user.id)}
-                            className="size-4 rounded border-white/20 bg-white/10 accent-violet-500"
+                            className="size-4 rounded border-white/20 bg-white/10 accent-orange-500"
                           />
                           <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
                             {user.email}
@@ -544,7 +544,7 @@ export function AgentDetailPage() {
                     type="button"
                     disabled={selectedUserIds.length === 0 || isAssigning}
                     onClick={() => void handleAssign()}
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-[0.98] disabled:opacity-50"
                   >
                     {isAssigning && (
                       <div className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -560,7 +560,7 @@ export function AgentDetailPage() {
         {/* Assigned users list */}
         {isLoadingAgentUsers ? (
           <div className="flex h-20 items-center justify-center">
-            <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+            <div className="size-5 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
           </div>
         ) : assignedUsers.length === 0 ? (
           <div className="flex h-20 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10">

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Bot, ArrowLeft, ChevronLeft, ChevronRight, Code2, Sparkles, Users } from "lucide-react";
+import { LayoutDashboard, Bot, ArrowLeft, ChevronLeft, ChevronRight, Code2, Pizza, Sparkles, Users } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { SidebarFooter } from "@/components/layout/SidebarFooter";
@@ -39,7 +39,7 @@ export function AdminSidebar({ collapsed, onToggleCollapse, hideToggle = false }
           <>
             {/* Logo mark */}
             <div className="flex shrink-0 flex-col items-center border-b border-white/5 py-3">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-900/40">
+              <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 shadow-md shadow-orange-900/40">
                 <Sparkles className="size-3.5 text-white" />
               </div>
             </div>
@@ -80,12 +80,12 @@ export function AdminSidebar({ collapsed, onToggleCollapse, hideToggle = false }
             {/* Header */}
             <div className="flex shrink-0 items-center justify-between gap-2.5 border-b border-white/5 px-3 py-3">
               <div className="flex min-w-0 items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-900/40">
-                  <Sparkles className="size-3.5 text-white" />
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 shadow-md shadow-orange-900/40">
+                  <Pizza className="size-3.5 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold tracking-tight text-zinc-100">Lumina AI</p>
-                  <p className="text-[10px] uppercase tracking-widest text-violet-400/80">Admin</p>
+                  <p className="truncate text-sm font-semibold tracking-tight text-zinc-100">PNE LC AI</p>
+                  <p className="text-[10px] uppercase tracking-widest text-orange-400/80">Admin</p>
                 </div>
               </div>
 
@@ -152,7 +152,7 @@ function NavItem({
         cn(
           "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all",
           isActive
-            ? "bg-gradient-to-r from-violet-600/25 to-fuchsia-600/10 text-white ring-1 ring-inset ring-violet-500/20"
+            ? "bg-gradient-to-r from-orange-600/25 to-amber-600/10 text-white ring-1 ring-inset ring-orange-500/20"
             : "text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300",
         )
       }
@@ -160,12 +160,12 @@ function NavItem({
       {({ isActive }) => (
         <>
           {isActive && (
-            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-violet-400 to-fuchsia-400" />
+            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-orange-400 to-amber-400" />
           )}
           <Icon
             className={cn(
               "size-4 shrink-0 transition-colors",
-              isActive ? "text-violet-300" : "text-zinc-500 group-hover:text-zinc-300",
+              isActive ? "text-orange-300" : "text-zinc-500 group-hover:text-zinc-300",
             )}
           />
           {label}
@@ -199,7 +199,7 @@ function IconBtn({
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
             active
-              ? "bg-gradient-to-br from-violet-600/30 to-fuchsia-600/15 text-violet-300 ring-1 ring-inset ring-violet-500/20"
+              ? "bg-gradient-to-br from-orange-600/30 to-amber-600/15 text-orange-300 ring-1 ring-inset ring-orange-500/20"
               : "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200",
           )}
         >

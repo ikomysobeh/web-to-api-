@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getEmbedBootstrap, embedChatStream, getCookiesStatus } from "@/services/api";
 import { WidgetChat, type WidgetMessage } from "@/components/widget/WidgetChat";
+import { GeminiSetupGuide, type GeminiGuideState } from "@/components/widget/GeminiSetupGuide";
 import type { EmbedConfigAppearance, Suggestion } from "@/types/chat";
 
 const AUTH_BASE_FOR_LOGIN =
@@ -22,13 +23,29 @@ export default function WidgetPage() {
   const [appearance, setAppearance] = useState<EmbedConfigAppearance>({});
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [geminiConnected, setGeminiConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [connectMsg, setConnectMsg] = useState("");
-  const extInstalled =
-    typeof document !== "undefined" && document.documentElement.dataset.luminaExt === "1";
+  const [connectPhase, setConnectPhase] = useState<"idle" | "connecting" | "success" | "error">("idle");
+  const [connectError, setConnectError] = useState("");
+  const [extInstalled, setExtInstalled] = useState(
+    typeof document !== "undefined" && document.documentElement.dataset.luminaExt === "1",
+  );
 
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Show the "connected" confirmation briefly, then reveal the chat.
+  const markConnected = useCallback(() => {
+    setConnectPhase("success");
+    setTimeout(() => setGeminiConnected(true), 1200);
+  }, []);
+
+  // The extension content script sets this at document-idle, which may land
+  // after React mounts — re-check shortly after load.
+  useEffect(() => {
+    const check = () => setExtInstalled(document.documentElement.dataset.luminaExt === "1");
+    check();
+    const id = setTimeout(check, 800);
+    return () => clearTimeout(id);
+  }, []);
 
   // 1. Tell the parent we're ready to receive the token
   useEffect(() => {
@@ -75,30 +92,41 @@ export default function WidgetPage() {
   // 4. Listen for Gemini connect progress from the extension
   useEffect(() => {
     function onStatus(e: Event) {
-      const detail = (e as CustomEvent).detail as { phase?: string; error?: string; message?: string };
+      const detail = (e as CustomEvent).detail as { phase?: string; error?: string };
       if (detail?.phase === "done") {
-        setConnecting(false);
-        setConnectMsg("Gemini connected.");
-        if (token) getCookiesStatus(token).then((s) => setGeminiConnected(s.connected)).catch(() => {});
+        markConnected();
       } else if (detail?.phase === "error") {
-        setConnecting(false);
-        setConnectMsg(detail.error ?? "Could not connect Gemini.");
+        setConnectPhase("error");
+        setConnectError(detail.error ?? "Could not connect Gemini.");
       } else if (detail?.phase) {
-        setConnectMsg("Connecting Gemini…");
+        setConnectPhase("connecting");
       }
     }
     window.addEventListener("lumina:gemini-status", onStatus);
     return () => window.removeEventListener("lumina:gemini-status", onStatus);
-  }, [token]);
+  }, [markConnected]);
+
+  // 5. While waiting to connect, poll status so the widget auto-advances to
+  // chat once the user completes "Connect Gemini Automatically" in the extension.
+  useEffect(() => {
+    if (phase !== "ready" || geminiConnected || !token) return;
+    const id = setInterval(() => {
+      getCookiesStatus(token)
+        .then((s) => {
+          if (s.connected) {
+            clearInterval(id);
+            markConnected();
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
+  }, [phase, geminiConnected, token, markConnected]);
 
   function connectGemini() {
-    if (!token) return;
-    if (!extInstalled) {
-      setConnectMsg("Please install the Lumina extension to connect Gemini.");
-      return;
-    }
-    setConnecting(true);
-    setConnectMsg("Connecting Gemini…");
+    if (!token || !extInstalled) return;
+    setConnectError("");
+    setConnectPhase("connecting");
     window.dispatchEvent(new CustomEvent("lumina:connect-gemini", { detail: { token } }));
   }
 
@@ -170,7 +198,7 @@ export default function WidgetPage() {
     [token, embedKey],
   );
 
-  const accent = appearance.accentColor ?? "#7c3aed";
+  const accent = appearance.accentColor ?? "#f97316";
   const theme = appearance.theme ?? "dark";
 
   if (!embedKey) {
@@ -196,7 +224,7 @@ export default function WidgetPage() {
   if (phase === "loading") {
     return (
       <CenterCard theme={theme}>
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-600 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-600 border-t-orange-500" />
       </CenterCard>
     );
   }
@@ -205,29 +233,40 @@ export default function WidgetPage() {
     return <CenterCard theme={theme}>{errorMsg}</CenterCard>;
   }
 
-  // ready
+  // ready — but Gemini not connected yet: show the setup guide in the panel
+  if (!geminiConnected) {
+    const guideState: GeminiGuideState =
+      connectPhase === "success"
+        ? "success"
+        : connectPhase === "error"
+          ? "error"
+          : connectPhase === "connecting"
+            ? "connecting"
+            : extInstalled
+              ? "waiting"
+              : "need-extension";
+    return (
+      <div className="h-screen">
+        <GeminiSetupGuide
+          state={guideState}
+          errorMsg={connectError}
+          theme={theme}
+          onConnect={extInstalled ? connectGemini : undefined}
+          onRetry={() => {
+            setConnectPhase("idle");
+            setConnectError("");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ready + connected: the chat
   return (
     <div className="flex h-screen flex-col">
-      {!geminiConnected && (
-        <div className="flex items-center justify-between gap-2 bg-amber-500/15 px-4 py-2 text-xs text-amber-200">
-          <span>{connectMsg || "Connect Gemini to start chatting."}</span>
-          {extInstalled ? (
-            <button
-              type="button"
-              onClick={connectGemini}
-              disabled={connecting}
-              className="shrink-0 rounded-lg bg-amber-400/20 px-2.5 py-1 font-medium text-amber-100 disabled:opacity-50"
-            >
-              {connecting ? "Connecting…" : "Connect Gemini"}
-            </button>
-          ) : (
-            <span className="shrink-0 text-amber-300">Install the extension</span>
-          )}
-        </div>
-      )}
       <div className="min-h-0 flex-1">
         <WidgetChat
-          title={appearance.title ?? "Lumina Assistant"}
+          title={appearance.title ?? "PNE LC AI Assistant"}
           greeting={appearance.greeting ?? "Hi! How can I help you today?"}
           accentColor={accent}
           theme={theme}

@@ -31,12 +31,12 @@ import { cn } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 
 const SUGGESTION_ACCENTS = [
-  { icon: Sparkles, iconBg: "bg-violet-500/15 text-violet-300", ring: "hover:ring-violet-400/30" },
+  { icon: Sparkles, iconBg: "bg-orange-500/15 text-orange-300", ring: "hover:ring-orange-400/30" },
   { icon: Lightbulb, iconBg: "bg-amber-500/15 text-amber-300", ring: "hover:ring-amber-400/30" },
-  { icon: MessageCircleQuestion, iconBg: "bg-sky-500/15 text-sky-300", ring: "hover:ring-sky-400/30" },
+  { icon: MessageCircleQuestion, iconBg: "bg-yellow-500/15 text-yellow-300", ring: "hover:ring-yellow-400/30" },
   { icon: Wand2, iconBg: "bg-emerald-500/15 text-emerald-300", ring: "hover:ring-emerald-400/30" },
   { icon: Rocket, iconBg: "bg-rose-500/15 text-rose-300", ring: "hover:ring-rose-400/30" },
-  { icon: Compass, iconBg: "bg-indigo-500/15 text-indigo-300", ring: "hover:ring-indigo-400/30" },
+  { icon: Compass, iconBg: "bg-orange-500/15 text-orange-300", ring: "hover:ring-orange-400/30" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -115,26 +115,26 @@ export function ChatHome({ onSendMessage, disabled = false, myAgents, selectedAg
         className={cn(
           "relative h-full overflow-y-auto",
           "before:pointer-events-none before:absolute before:inset-0",
-          "before:bg-[radial-gradient(ellipse_150%_90%_at_50%_-20%,rgba(124,58,237,0.15),rgba(59,130,246,0.06),transparent)]",
+          "before:bg-[radial-gradient(ellipse_150%_90%_at_50%_-20%,rgba(234,88,12,0.15),rgba(245,158,11,0.06),transparent)]",
         )}
       >
         <div className="relative z-10 mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center gap-10 px-4 py-16 sm:px-6">
 
           {/* ── Greeting ─────────────────────────────────────────────────── */}
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-900/50">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg shadow-orange-900/50">
               <Sparkles className="size-6 text-white" />
             </div>
 
             <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl leading-tight">
               What can I help{" "}
-              <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-orange-300 via-amber-300 to-orange-300 bg-clip-text text-transparent">
                 with?
               </span>
             </h1>
 
             <p className="max-w-xl text-base text-zinc-400">
-              Ask me anything — powered by Lumina AI.
+              Ask me anything — powered by PNE LC AI.
             </p>
           </div>
 
@@ -142,7 +142,7 @@ export function ChatHome({ onSendMessage, disabled = false, myAgents, selectedAg
           <div
             className={cn(
               "glass flex w-full flex-col rounded-3xl px-3 pb-3 pt-3",
-              "transition-all duration-200 focus-within:border-violet-400/30 focus-within:shadow-[0_0_0_1px_rgba(167,139,250,0.25),0_20px_60px_-30px_rgba(124,58,237,0.55)]",
+              "transition-all duration-200 focus-within:border-orange-400/30 focus-within:shadow-[0_0_0_1px_rgba(251,146,60,0.25),0_20px_60px_-30px_rgba(234,88,12,0.55)]",
               disabled && "opacity-60",
             )}
           >
@@ -164,7 +164,7 @@ export function ChatHome({ onSendMessage, disabled = false, myAgents, selectedAg
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onInput={handleInput}
-                placeholder="Ask Lumina anything…"
+                placeholder="Ask PNE LC AI anything…"
                 disabled={disabled}
                 rows={1}
                 aria-label="Message input"
@@ -212,7 +212,7 @@ export function ChatHome({ onSendMessage, disabled = false, myAgents, selectedAg
                         size="icon-sm"
                         onClick={handleSend}
                         aria-label="Send message"
-                        className="size-8 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-95"
+                        className="size-8 rounded-full bg-gradient-to-br from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-95"
                       >
                         <ArrowUp className="size-4" />
                       </Button>
