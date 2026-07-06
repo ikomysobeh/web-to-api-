@@ -9,7 +9,7 @@ import { CookieSetupModal } from "@/components/modals/CookieSetupModal";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatHome } from "@/components/chat/ChatHome";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { Sidebar, CollapsedSidebarRail } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileSidebar } from "@/components/layout/MobileSidebar";
 import { ChatMessages } from "@/components/chat/ChatMessages";
@@ -44,10 +44,7 @@ export interface MobileSidebarProps {
 
 export interface TopBarProps {
   activeChat: ChatSession | null;
-  onOpenMobileSidebar: () => void;
   onNewChat: () => void;
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
 }
 
 export interface ChatHomeProps {
@@ -74,6 +71,7 @@ export interface ChatMessagesProps {
   myAgents: UserAgent[];
   selectedAgentId: string | null;
   onAgentChange: (id: string | null) => void;
+  agentLocked: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,10 +144,16 @@ export default function AppShell() {
     setSelectedModelId(id);
   };
 
+  // The agent is bound to the conversation once chat starts — lock it there.
+  const activeConversation = activeConversationId
+    ? conversations.find((c) => c.id === activeConversationId)
+    : null;
+  const activeAgentId = activeConversation?.agent_id ?? null;
+
   return (
     <TooltipProvider>
       <div className="app-bg flex h-screen w-screen overflow-hidden text-foreground">
-        {/* Desktop sidebar */}
+        {/* Desktop sidebar (user-toggleable expand/collapse) */}
         <div className="hidden md:flex">
           <Sidebar
             groups={sidebarGroups}
@@ -163,6 +167,16 @@ export default function AppShell() {
             onClearAll={() => void deleteAllConversations()}
           />
         </div>
+
+        {/* Mobile: persistent collapsed icon rail — hidden while the drawer is
+            open so its translucent glass background can't bleed through the
+            drawer (which caused overlapping logos) or intercept clicks meant
+            for the drawer's own controls. */}
+        {!mobileSidebarOpen && (
+          <div className="flex md:hidden">
+            <CollapsedSidebarRail onNewChat={newChat} onOpenMenu={() => setMobileSidebarOpen(true)} />
+          </div>
+        )}
 
         {/* Mobile sidebar */}
         <MobileSidebar
@@ -181,13 +195,10 @@ export default function AppShell() {
         <div className="relative flex min-w-0 flex-1 flex-col">
           <TopBar
             activeChat={activeSession}
-            onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
             onNewChat={newChat}
-            sidebarCollapsed={sidebarCollapsed}
-            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
 
-          <main className="flex-1 overflow-hidden">
+          <main className="min-w-0 flex-1 overflow-hidden">
             {activeSession ? (
               <ChatMessages
                 session={activeSession}
@@ -203,8 +214,9 @@ export default function AppShell() {
                 isLoadingMore={isLoadingMoreMessages}
                 availableModels={availableModels}
                 myAgents={myAgents}
-                selectedAgentId={selectedAgentId}
+                selectedAgentId={activeAgentId}
                 onAgentChange={setSelectedAgentId}
+                agentLocked
               />
             ) : (
               <ChatHome

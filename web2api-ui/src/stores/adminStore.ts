@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser } from "@/types/chat";
+import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUser, Suggestion } from "@/types/chat";
 import {
   listAgents,
   createAgent as apiCreateAgent,
@@ -12,6 +12,9 @@ import {
   getAgentUsers as apiGetAgentUsers,
   assignAgentUsers as apiAssignAgentUsers,
   removeAgentUser as apiRemoveAgentUser,
+  generateAgentSuggestions as apiGenerateSuggestions,
+  getAgentSuggestions as apiGetSuggestions,
+  saveAgentSuggestions as apiSaveSuggestions,
 } from "@/services/api";
 
 function getToken(): string {
@@ -27,9 +30,13 @@ interface AdminStore {
   isUploading: boolean;
   users: AdminUser[];
   isLoadingUsers: boolean;
+  usersPagination: { total: number; lastPage: number; currentPage: number };
   assignedUsersByAgentId: Record<string, AgentUser[]>;
   isLoadingAgentUsers: boolean;
   isAssigning: boolean;
+  suggestionsByAgentId: Record<string, Suggestion[]>;
+  isGeneratingSuggestions: boolean;
+  isSavingSuggestions: boolean;
   loadAgents: () => Promise<void>;
   createAgent: (data: AgentCreate) => Promise<Agent>;
   updateAgent: (id: string, data: AgentUpdate) => Promise<void>;
@@ -37,10 +44,13 @@ interface AdminStore {
   loadDocuments: (agentId: string) => Promise<void>;
   uploadDocument: (agentId: string, file: File) => Promise<void>;
   deleteDocument: (agentId: string, filename: string) => Promise<void>;
-  loadUsers: () => Promise<void>;
+  loadUsers: (page?: number) => Promise<void>;
   loadAgentUsers: (agentId: string) => Promise<void>;
   assignAgentUsers: (agentId: string, userIds: number[]) => Promise<void>;
   removeAgentUser: (agentId: string, userId: number) => Promise<void>;
+  loadSuggestions: (agentId: string) => Promise<void>;
+  generateSuggestions: (agentId: string, count?: number) => Promise<string[]>;
+  saveSuggestions: (agentId: string, questions: string[]) => Promise<void>;
 }
 
 const initialState = {
@@ -52,9 +62,13 @@ const initialState = {
   isUploading: false,
   users: [] as AdminUser[],
   isLoadingUsers: false,
+  usersPagination: { total: 0, lastPage: 1, currentPage: 1 },
   assignedUsersByAgentId: {} as Record<string, AgentUser[]>,
   isLoadingAgentUsers: false,
   isAssigning: false,
+  suggestionsByAgentId: {} as Record<string, Suggestion[]>,
+  isGeneratingSuggestions: false,
+  isSavingSuggestions: false,
 };
 
 export const useAdminStore = create<AdminStore>((set) => ({
@@ -162,13 +176,17 @@ export const useAdminStore = create<AdminStore>((set) => ({
     }));
   },
 
-  loadUsers: async () => {
+  loadUsers: async (page = 1) => {
     const token = getToken();
     if (!token) return;
     set({ isLoadingUsers: true });
     try {
-      const data = await apiListUsers(token);
-      set({ users: data.users, isLoadingUsers: false });
+      const data = await apiListUsers(token, page);
+      set({
+        users: data.users,
+        isLoadingUsers: false,
+        usersPagination: { total: data.total, lastPage: data.lastPage, currentPage: data.currentPage },
+      });
     } catch {
       set({ isLoadingUsers: false });
     }
@@ -216,5 +234,48 @@ export const useAdminStore = create<AdminStore>((set) => ({
         ),
       },
     }));
+  },
+
+  loadSuggestions: async (agentId: string) => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const data = await apiGetSuggestions(token, agentId);
+      set((state) => ({
+        suggestionsByAgentId: { ...state.suggestionsByAgentId, [agentId]: data.suggestions },
+      }));
+    } catch {
+      // leave existing suggestions in place on failure
+    }
+  },
+
+  // Returns the generated (unsaved) questions so the modal can seed itself.
+  generateSuggestions: async (agentId: string, count = 6): Promise<string[]> => {
+    const token = getToken();
+    set({ isGeneratingSuggestions: true });
+    try {
+      const data = await apiGenerateSuggestions(token, agentId, count);
+      set({ isGeneratingSuggestions: false });
+      return data.questions;
+    } catch (err) {
+      set({ isGeneratingSuggestions: false });
+      throw err;
+    }
+  },
+
+  saveSuggestions: async (agentId: string, questions: string[]) => {
+    const token = getToken();
+    set({ isSavingSuggestions: true });
+    try {
+      await apiSaveSuggestions(token, agentId, questions);
+      const data = await apiGetSuggestions(token, agentId);
+      set((state) => ({
+        suggestionsByAgentId: { ...state.suggestionsByAgentId, [agentId]: data.suggestions },
+        isSavingSuggestions: false,
+      }));
+    } catch (err) {
+      set({ isSavingSuggestions: false });
+      throw err;
+    }
   },
 }));

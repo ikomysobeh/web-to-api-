@@ -16,6 +16,10 @@ import {
   getCookiesStatus,
   listMyAgents,
 } from "@/services/api";
+import { getErrorMessage, isGeminiAuthError } from "@/lib/errors";
+
+const GEMINI_EXPIRED_MSG =
+  "Your Gemini connection has expired. Please reconnect Gemini to keep chatting.";
 
 // Default fallback model until /api/models is loaded
 const DEFAULT_MODEL = "gemini-3-flash";
@@ -77,6 +81,16 @@ export interface ConversationStore {
 }
 
 // ---------------------------------------------------------------------------
+// Sidebar collapse persistence (survives reloads)
+// ---------------------------------------------------------------------------
+
+const SIDEBAR_COLLAPSED_KEY = "lumina_sidebar_collapsed";
+
+function getStoredSidebarCollapsed(): boolean {
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+// ---------------------------------------------------------------------------
 // Initial state values (reused in resetForLogout)
 // ---------------------------------------------------------------------------
 
@@ -90,7 +104,7 @@ const initialState = {
   myAgents: [] as UserAgent[],
   isLoadingMyAgents: false,
   selectedAgentId: null as string | null,
-  sidebarCollapsed: false,
+  sidebarCollapsed: getStoredSidebarCollapsed(),
   mobileSidebarOpen: false,
   selectedModelId: DEFAULT_MODEL as AIModelId,
   showCookieModal: false,
@@ -172,13 +186,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   createAndSelectConversation: async (firstMessage: string) => {
     const token = getToken();
-    const { selectedModelId } = get();
+    const { selectedModelId, selectedAgentId } = get();
     const backendModel = selectedModelId;
 
     const data = await createConversation(
       token,
       firstMessage.slice(0, 40).trim(),
       backendModel,
+      selectedAgentId,   // bind the chosen agent to the conversation
     );
 
     const newConv = data.conversation;
@@ -242,6 +257,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       convId = await get().createAndSelectConversation(trimmed);
     }
 
+    // Use the agent bound to THIS conversation (locked once chat started);
+    // fall back to the global selection for a brand-new conversation.
+    const activeConv = get().conversations.find((c) => c.id === convId);
+    const agentForSend = activeConv?.agent_id ?? selectedAgentId ?? undefined;
+
     const userMsg: ChatMessage = {
       id: `opt-user-${Date.now()}`,
       role: "user",
@@ -291,7 +311,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
     let fullContent = "";
     try {
-      const res = await sendConversationMessage(token, convId, trimmed, backendModel, selectedAgentId ?? undefined);
+      const res = await sendConversationMessage(token, convId, trimmed, backendModel, agentForSend);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -314,7 +334,17 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             const json = JSON.parse(data) as {
               choices?: { delta?: { content?: string } }[];
               content?: string;
+              error?: string;
             };
+            // Backend streams errors as {"error": "..."} — surface them instead
+            // of silently ignoring them (the old bug that showed an empty bubble).
+            if (json.error) {
+              const gemini = isGeminiAuthError(json.error);
+              patchReply(gemini ? GEMINI_EXPIRED_MSG : json.error, "error");
+              set({ streamingConvId: null });
+              if (gemini) get().setShowCookieModal(true);
+              return;
+            }
             chunk = json.choices?.[0]?.delta?.content ?? json.content ?? "";
           } catch {
             chunk = data;
@@ -330,12 +360,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       patchReply(fullContent, "done");
       set({ streamingConvId: null });
       void get().loadConversations();
-    } catch {
-      patchReply(
-        fullContent || "Sorry, something went wrong. Please try again.",
-        "error",
-      );
+    } catch (err) {
+      const msg = await getErrorMessage(err);
+      patchReply(fullContent || msg, "error");
       set({ streamingConvId: null });
+      if (isGeminiAuthError(msg)) get().setShowCookieModal(true);
     }
   },
 
@@ -474,7 +503,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // ── UI setters ────────────────────────────────────────────────────────────
 
-  setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+  setSidebarCollapsed: (v) => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, v ? "1" : "0");
+    set({ sidebarCollapsed: v });
+  },
   setMobileSidebarOpen: (v) => set({ mobileSidebarOpen: v }),
   setSelectedModelId: (id) => set({ selectedModelId: id }),
   setSelectedAgentId: (id) => set({ selectedAgentId: id }),
@@ -494,5 +526,5 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // ── Reset on logout ───────────────────────────────────────────────────────
 
-  resetForLogout: () => set(initialState),
+  resetForLogout: () => set({ ...initialState, sidebarCollapsed: getStoredSidebarCollapsed() }),
 }));

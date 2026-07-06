@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -16,19 +17,39 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
   const resetForLogout = useConversationStore((s) => s.resetForLogout);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const avatarBtnRef = useRef<HTMLButtonElement>(null);
 
   const email = user?.email ?? "";
   const initials = email ? email.slice(0, 2).toUpperCase() : "AI";
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click — the collapsed menu is portaled to
+  // document.body, so it's no longer a DOM descendant of wrapperRef.
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (!wrapperRef.current?.contains(e.target as Node)) setDropdownOpen(false);
+      const target = e.target as Node;
+      if (wrapperRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setDropdownOpen(false);
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, []);
+
+  function toggleCollapsedMenu() {
+    if (!dropdownOpen && avatarBtnRef.current) {
+      const rect = avatarBtnRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        bottom: window.innerHeight - rect.bottom,
+        left: rect.right + 8,
+        zIndex: 9999,
+      });
+    }
+    setDropdownOpen((v) => !v);
+  }
 
   async function handleLogout() {
     setDropdownOpen(false);
@@ -57,19 +78,41 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
     </div>
   );
 
-  // ── Collapsed: click avatar to open dropdown ──────────────────────────────
+  // ── Collapsed: click avatar to open a fixed-width flyout ─────────────────
+  // Portaled to document.body and positioned via getBoundingClientRect —
+  // the collapsed rail's <aside> has overflow-hidden (needed so the narrow
+  // rail itself never scrolls), which clipped this menu entirely when it was
+  // just an absolutely-positioned child. A portal escapes that clipping.
   if (collapsed) {
     return (
       <div ref={wrapperRef} className="relative flex flex-col items-center py-2">
         <button
+          ref={avatarBtnRef}
           type="button"
-          onClick={() => setDropdownOpen((v) => !v)}
+          onClick={toggleCollapsedMenu}
           aria-label="Account menu"
           className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40 transition-transform hover:scale-105"
         >
           {initials}
         </button>
-        {dropdownOpen && dropdown}
+        {dropdownOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={menuStyle}
+              className="glass-strong w-44 overflow-hidden rounded-xl py-1 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-red-400"
+              >
+                <LogOut className="size-4 shrink-0 text-zinc-500" />
+                Sign out
+              </button>
+            </div>,
+            document.body,
+          )}
       </div>
     );
   }

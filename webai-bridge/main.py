@@ -1,6 +1,6 @@
 # main.py
 
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -26,6 +26,16 @@ from schemas.users import UserPreferencesUpdate
 from schemas.models import ModelInfo
 from schemas.agents import AgentCreate, AgentUpdate, AgentResponse, AgentPublicResponse
 from schemas.documents import DocumentUploadResponse
+from schemas.suggestions import GenerateRequest, SaveRequest
+from services.suggestion_service import (
+    rebuild_agent_document_text, build_suggestion_prompt, parse_questions,
+    get_saved_suggestions, replace_suggestions
+)
+from schemas.embeds import EmbedCreate, EmbedUpdate, EmbedChatMessage
+from services.embed_service import (
+    create_embed, list_embeds, get_embed, get_embed_by_key,
+    update_embed, soft_delete_embed, origin_allowed
+)
 from services.conversation_service import (
     create_conversation, get_conversations, get_conversation,
     update_conversation, delete_conversation, delete_all_conversations
@@ -77,14 +87,21 @@ async def startup():
     logger.info("NATS sync task started")
 
 # CORS — like config/cors.php in Laravel
+# Local dev origins are always allowed. Add production origins via the
+# CORS_ORIGINS env var (comma-separated). Example in .env:
+#   CORS_ORIGINS=http://2.25.70.122:3000,https://app.yourdomain.com
+_default_cors_origins = [
+    "http://127.0.0.1:3000",  # frontend via Docker (IP)
+    "http://localhost:3000",   # frontend via Docker (hostname)
+    "http://127.0.0.1:5173",  # Vite dev server (IP)
+    "http://localhost:5173",   # Vite dev server (hostname)
+]
+_extra_cors_origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:3000",  # frontend via Docker (IP)
-        "http://localhost:3000",   # frontend via Docker (hostname)
-        "http://127.0.0.1:5173",  # Vite dev server (IP)
-        "http://localhost:5173",   # Vite dev server (hostname)
-    ],
+    allow_origins=_default_cors_origins + _extra_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -501,6 +518,8 @@ async def chat(data: ChatMessage, user = Depends(get_current_user)):
     logger.info(f"User ID: {user['user_id']}")
     logger.info(f"Model: {data.model}")
     logger.info(f"Message length: {len(data.message)}")
+    if not has_cookies(user["user_id"]):
+        raise HTTPException(status_code=400, detail="Connect your Gemini account first")
     user_id = str(user["user_id"])
     model = data.model
     messages = [{"role": "user", "content": data.message}]
@@ -749,6 +768,10 @@ async def send_message(
     conversation = get_conversation(conversation_id_str, user["user_id"])
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # No Gemini connected → clear error before we save anything or stream
+    if not has_cookies(user["user_id"]):
+        raise HTTPException(status_code=400, detail="Connect your Gemini account first")
 
     # Save user message to database
     create_message(conversation_id_str, "user", data.message)
@@ -1339,6 +1362,97 @@ def admin_delete_document(agent_id: str, filename: str, user = Depends(require_a
 
 
 # ════════════════════════════════════════════════════════
+# ADMIN — SUGGESTIONS (Gemini-generated starter questions)
+# ════════════════════════════════════════════════════════
+
+def _extract_completion_text(payload: dict) -> str:
+    """Pull the assistant text out of a (non-streaming) chat completion response."""
+    try:
+        choices = payload.get("choices")
+        if choices:
+            msg = choices[0].get("message") or {}
+            if msg.get("content"):
+                return msg["content"]
+            if choices[0].get("text"):
+                return choices[0]["text"]
+    except (AttributeError, IndexError, TypeError):
+        pass
+    # legacy {"response": "..."} shape
+    if isinstance(payload.get("response"), str):
+        return payload["response"]
+    return ""
+
+
+@app.post("/admin/agents/{agent_id}/suggestions/generate")
+async def admin_generate_suggestions(agent_id: str, data: GenerateRequest, user = Depends(require_admin)):
+    """
+    Ask Gemini (using THIS admin's connected account) to write starter questions
+    from the agent's uploaded documents. Returns the list — does NOT save it.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, instructions, model FROM agents WHERE id = %s", (agent_id,))
+    agent = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    count = data.count or 6
+    doc_text = rebuild_agent_document_text(agent_id)
+    messages = build_suggestion_prompt(agent["name"], agent["instructions"], doc_text, count)
+
+    user_id = str(user["user_id"])
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{WEBAI_URL}/v1/chat/completions",
+                json={"model": agent["model"], "stream": False, "messages": messages},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Internal-Key": WEBAI_INTERNAL_KEY,
+                    "X-Internal-User-ID": user_id,
+                },
+            )
+    except Exception:
+        logger.exception("Suggestion generation: WebAI-to-API call failed")
+        raise HTTPException(status_code=502, detail="Could not reach the Gemini service. Try again.")
+
+    if resp.status_code != 200:
+        logger.error(f"Suggestion generation failed: status={resp.status_code} body={resp.text[:300]}")
+        raise HTTPException(
+            status_code=502,
+            detail="Gemini request failed. Make sure your Gemini account is connected, then try again."
+        )
+
+    text = _extract_completion_text(resp.json())
+    questions = parse_questions(text, count)
+    logger.info(f"Suggestions generated for agent={agent_id}: {len(questions)} questions")
+    return {"success": True, "questions": questions}
+
+
+@app.get("/admin/agents/{agent_id}/suggestions")
+def admin_get_suggestions(agent_id: str, user = Depends(require_admin)):
+    """Return the currently saved (approved) suggestions for an agent."""
+    return {"success": True, "suggestions": get_saved_suggestions(agent_id)}
+
+
+@app.put("/admin/agents/{agent_id}/suggestions")
+def admin_save_suggestions(agent_id: str, data: SaveRequest, user = Depends(require_admin)):
+    """Replace the saved suggestions with the admin-approved list."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM agents WHERE id = %s", (agent_id,))
+    found = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    count = replace_suggestions(agent_id, data.questions)
+    return {"success": True, "count": count, "message": f"Saved {count} suggestion(s)"}
+
+
+# ════════════════════════════════════════════════════════
 # ADMIN — USER-AGENT ASSIGNMENT
 # ════════════════════════════════════════════════════════
 
@@ -1491,3 +1605,186 @@ def user_get_agent(agent_id: str, user = Depends(get_current_user)):
     if not row:
         raise HTTPException(status_code=404, detail="Agent not found or not assigned to you")
     return {"success": True, "agent": dict(row)}
+
+
+@app.get("/api/agents/{agent_id}/suggestions")
+def user_get_agent_suggestions(agent_id: str, user = Depends(get_current_user)):
+    """Approved starter questions for an agent the logged-in user is assigned to."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 1
+        FROM user_agents ua
+        JOIN agents a ON a.id = ua.agent_id
+        WHERE ua.agent_id = %s AND ua.user_id = %s AND a.is_active = true
+    """, (agent_id, user["user_id"]))
+    assigned = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not assigned:
+        raise HTTPException(status_code=404, detail="Agent not found or not assigned to you")
+    return {"success": True, "suggestions": get_saved_suggestions(agent_id)}
+
+
+# ════════════════════════════════════════════════════════
+# EMBEDDABLE CHAT WIDGETS
+# ════════════════════════════════════════════════════════
+
+async def _build_messages_with_context(agent_id: str, instructions: str, message: str) -> list:
+    """Build the [system, user] messages for an agent, injecting vector context."""
+    relevant_chunks = await search_chunks(agent_id, message, limit=5)
+    system_parts = [instructions or ""]
+    if relevant_chunks:
+        system_parts.append("\n\n--- Relevant Knowledge ---")
+        for i, chunk in enumerate(relevant_chunks, 1):
+            system_parts.append(f"[{i}] {chunk}")
+    system_prompt = "\n".join(system_parts)
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": message},
+    ]
+
+
+def _stream_webai(model: str, messages: list, user_id):
+    """Stream a chat completion from WebAI-to-API using a user's Gemini client."""
+    request_body = {"model": model, "stream": True, "messages": messages}
+    uid = str(user_id)
+
+    async def gen():
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream(
+                    "POST",
+                    f"{WEBAI_URL}/v1/chat/completions",
+                    json=request_body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Internal-Key": WEBAI_INTERNAL_KEY,
+                        "X-Internal-User-ID": uid,
+                    },
+                ) as response:
+                    if response.status_code != 200:
+                        error = await response.aread()
+                        yield f"data: {json.dumps({'error': error.decode()})}\n\n"
+                        return
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield f"{line}\n\n"
+        except Exception as e:
+            logger.exception("Embed chat streaming error")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ─── Admin CRUD ──────────────────────────────────────────────────────────────
+
+@app.get("/admin/embeds")
+def admin_list_embeds(agent_id: str = None, user = Depends(require_admin)):
+    return {"success": True, "embeds": list_embeds(agent_id)}
+
+
+@app.post("/admin/embeds")
+def admin_create_embed(data: EmbedCreate, user = Depends(require_admin)):
+    # verify agent exists
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM agents WHERE id = %s", (data.agent_id,))
+    found = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    embed = create_embed(data.agent_id, user["user_id"], data.allowed_domains, data.config)
+    return {"success": True, "embed": embed}
+
+
+@app.get("/admin/embeds/{embed_id}")
+def admin_get_embed(embed_id: str, user = Depends(require_admin)):
+    embed = get_embed(embed_id)
+    if not embed:
+        raise HTTPException(status_code=404, detail="Embed not found")
+    return {"success": True, "embed": embed}
+
+
+@app.put("/admin/embeds/{embed_id}")
+def admin_update_embed(embed_id: str, data: EmbedUpdate, user = Depends(require_admin)):
+    embed = update_embed(embed_id, data.allowed_domains, data.config, data.is_active)
+    if not embed:
+        raise HTTPException(status_code=404, detail="Embed not found")
+    return {"success": True, "embed": embed}
+
+
+@app.delete("/admin/embeds/{embed_id}")
+def admin_delete_embed(embed_id: str, user = Depends(require_admin)):
+    if not soft_delete_embed(embed_id):
+        raise HTTPException(status_code=404, detail="Embed not found")
+    return {"success": True, "message": "Embed deactivated"}
+
+
+# ─── Public bootstrap + chat (embed-granted, Sanctum-authenticated) ──────────
+
+@app.get("/api/embeds/{embed_key}")
+def embed_bootstrap(embed_key: str, request: Request, user = Depends(get_current_user)):
+    """Load a widget's appearance + agent (no instructions). Origin-checked."""
+    embed = get_embed_by_key(embed_key)
+    if not embed or not embed["is_active"]:
+        raise HTTPException(status_code=404, detail="Embed not found")
+    if not origin_allowed(embed, request.headers.get("origin")):
+        raise HTTPException(status_code=403, detail="Origin not allowed for this embed")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT name, description, model FROM agents WHERE id = %s AND is_active = true",
+        (embed["agent_id"],),
+    )
+    agent = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not available")
+
+    return {
+        "success": True,
+        "agent": {"name": agent["name"], "description": agent["description"], "model": agent["model"]},
+        "config": embed["config"],
+        "suggestions": get_saved_suggestions(embed["agent_id"]),
+    }
+
+
+@app.post("/api/embeds/{embed_key}/chat")
+async def embed_chat(embed_key: str, data: EmbedChatMessage, request: Request,
+                     user = Depends(get_current_user)):
+    """Embed-granted chat — the embed key is the permission (no user_agents check)."""
+    embed = get_embed_by_key(embed_key)
+    if not embed or not embed["is_active"]:
+        raise HTTPException(status_code=404, detail="Embed not found")
+    if not origin_allowed(embed, request.headers.get("origin")):
+        raise HTTPException(status_code=403, detail="Origin not allowed for this embed")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT instructions, model FROM agents WHERE id = %s AND is_active = true",
+        (embed["agent_id"],),
+    )
+    agent = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not available")
+
+    if not has_cookies(user["user_id"]):
+        raise HTTPException(status_code=400, detail="Connect your Gemini account first")
+
+    messages = await _build_messages_with_context(embed["agent_id"], agent["instructions"], data.message)
+    return _stream_webai(agent["model"], messages, user["user_id"])

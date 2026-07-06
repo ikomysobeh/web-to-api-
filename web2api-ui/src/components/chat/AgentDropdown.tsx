@@ -9,6 +9,7 @@ interface AgentDropdownProps {
   onAgentChange: (id: string | null) => void;
   disabled?: boolean;
   dropUp?: boolean;
+  locked?: boolean;
 }
 
 export function AgentDropdown({
@@ -17,10 +18,25 @@ export function AgentDropdown({
   onAgentChange,
   disabled,
   dropUp = false,
+  locked = false,
 }: AgentDropdownProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const selectedAgent = myAgents.find((a) => a.id === selectedAgentId) ?? null;
+
+  // Once a conversation has started, the agent is fixed — show a static chip
+  // (no dropdown, no clear button).
+  if (locked) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-violet-600/25 px-3 py-1.5 text-xs font-semibold text-violet-300 ring-1 ring-inset ring-violet-500/30"
+        aria-label={selectedAgent ? `Agent: ${selectedAgent.name}` : "Agent"}
+      >
+        <Bot className="size-3.5 shrink-0" />
+        <span className="max-w-28 truncate">{selectedAgent ? selectedAgent.name : "Agent"}</span>
+      </span>
+    );
+  }
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {

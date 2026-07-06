@@ -1,4 +1,4 @@
-import { Sparkles, PanelLeft, SquarePen } from "lucide-react";
+import { SquarePen } from "lucide-react";
 
 import type { ChatSession } from "@/types/chat";
 import { Button } from "@/components/ui/button";
@@ -11,64 +11,16 @@ import {
 
 interface TopBarProps {
   activeChat: ChatSession | null;
-  onOpenMobileSidebar: () => void;
   onNewChat: () => void;
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
 }
 
 export function TopBar({
   activeChat,
-  onOpenMobileSidebar,
   onNewChat,
-  sidebarCollapsed,
-  onToggleSidebar,
 }: TopBarProps) {
   return (
     <TooltipProvider>
       <header className="absolute inset-x-0 top-0 z-50 flex h-13 shrink-0 items-center gap-2 bg-transparent px-3">
-        {/* Left side */}
-        <div className="flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Open menu"
-                onClick={onOpenMobileSidebar}
-                className="rounded-full text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100 md:hidden"
-              >
-                <PanelLeft className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Open menu</TooltipContent>
-          </Tooltip>
-
-          {sidebarCollapsed && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Expand sidebar"
-                  onClick={onToggleSidebar}
-                  className="hidden rounded-full text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100 md:inline-flex"
-                >
-                  <PanelLeft className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Expand sidebar</TooltipContent>
-            </Tooltip>
-          )}
-
-          <div className="flex select-none items-center gap-1.5 md:hidden">
-            <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-950/50">
-              <Sparkles className="size-3.5 text-white" />
-            </div>
-            <span className="text-sm font-semibold text-white">Lumina AI</span>
-          </div>
-        </div>
-
         {/* Center title */}
         <div className="min-w-0 flex-1 px-2">
           {activeChat ? (

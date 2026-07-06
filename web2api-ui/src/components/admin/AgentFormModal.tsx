@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { useAdminStore } from "@/stores/adminStore";
 import type { Agent, AgentCreate, AgentUpdate } from "@/types/chat";
 
@@ -48,8 +49,8 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
         onClose();
         onCreated?.(newAgent);
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(await getErrorMessage(err));
     }
   }
 
@@ -66,7 +67,7 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
         aria-modal="true"
         aria-labelledby="agent-form-title"
         className={cn(
-          "glass-strong fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
+          "glass-strong fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
           "rounded-2xl p-6",
         )}
       >
