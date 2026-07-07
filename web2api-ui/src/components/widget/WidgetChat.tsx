@@ -109,8 +109,22 @@ export function WidgetChat({
             >
               {m.role === "assistant" && m.content ? (
                 <MarkdownMessage content={m.content} />
+              ) : m.role === "assistant" && !m.content && busy ? (
+                <span
+                  className="flex items-center gap-1 py-0.5"
+                  role="status"
+                  aria-label="Assistant is typing"
+                >
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="size-1.5 animate-bounce rounded-full"
+                      style={{ background: accentColor, animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </span>
               ) : (
-                m.content || (busy ? "…" : "")
+                m.content
               )}
             </div>
           </div>

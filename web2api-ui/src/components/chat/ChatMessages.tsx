@@ -30,6 +30,10 @@ function MessageBubble({
   const isUser = message.role === "user";
   const isSending = message.status === "sending";
   const isDone = message.status === "done" || message.status === "error";
+  // Assistant reply placeholder that hasn't received its first streamed token
+  // yet — show a typing indicator so the user knows a response is on its way.
+  const isWaiting =
+    !isUser && message.status === "streaming" && message.content === "";
 
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -83,12 +87,16 @@ function MessageBubble({
             isSending && "animate-pulse opacity-60",
           )}
         >
-          {isSending ? (
-            <div className="flex items-center gap-1.5 py-0.5">
+          {isSending || isWaiting ? (
+            <div
+              className="flex items-center gap-1.5 py-0.5"
+              role="status"
+              aria-label={isWaiting ? "Assistant is typing" : "Sending message"}
+            >
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="size-1.5 animate-bounce rounded-full bg-zinc-500"
+                  className="size-1.5 animate-bounce rounded-full bg-orange-400/70"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
@@ -236,7 +244,17 @@ export function ChatMessages({
     if (last.id === lastMsgIdRef.current) return;
     lastMsgIdRef.current = last.id;
 
-    if (last.role === "user" || isAtBottomRef.current) {
+    // A just-sent turn always ends with an empty streaming assistant placeholder
+    // (the user's message + the reply are appended together). Force-scroll to it
+    // so the typing indicator is visible even if the user had scrolled up while
+    // reading an earlier reply.
+    const isPendingReply =
+      last.role === "assistant" &&
+      last.status === "streaming" &&
+      last.content === "";
+
+    if (last.role === "user" || isPendingReply || isAtBottomRef.current) {
+      isAtBottomRef.current = true;
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [session.messages]);
