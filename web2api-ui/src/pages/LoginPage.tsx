@@ -66,13 +66,7 @@ export default function LoginPage() {
       <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl">
         {/* Brand */}
         <div className="mb-7 flex flex-col items-center text-center">
-          <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500">
-            <svg viewBox="0 0 24 24" fill="none" className="size-6 text-white" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
-              <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
-              <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
-            </svg>
-          </div>
+          <img src="/favicon.svg" alt="PNE LC AI" className="mb-4 size-12" />
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Welcome back</h1>
           <p className="mt-1 text-sm text-zinc-400">Sign in to your PNE LC AI account</p>
         </div>
