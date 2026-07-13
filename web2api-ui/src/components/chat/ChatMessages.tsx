@@ -30,6 +30,10 @@ function MessageBubble({
   const isUser = message.role === "user";
   const isSending = message.status === "sending";
   const isDone = message.status === "done" || message.status === "error";
+  // Assistant reply placeholder that hasn't received its first streamed token
+  // yet — show a typing indicator so the user knows a response is on its way.
+  const isWaiting =
+    !isUser && message.status === "streaming" && message.content === "";
 
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -56,14 +60,14 @@ function MessageBubble({
       )}
     >
       {isUser ? (
-        <Avatar className="mt-0.5 size-7 shrink-0 shadow-md shadow-violet-950/40">
-          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-semibold text-white">
+        <Avatar className="mt-0.5 size-7 shrink-0 shadow-md shadow-orange-950/40">
+          <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 text-xs font-semibold text-white">
             {userInitials}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 ring-1 ring-inset ring-white/10">
-          <Sparkles className="size-3.5 text-violet-300" />
+        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500/25 to-amber-500/25 ring-1 ring-inset ring-white/10">
+          <Sparkles className="size-3.5 text-orange-300" />
         </div>
       )}
 
@@ -83,12 +87,16 @@ function MessageBubble({
             isSending && "animate-pulse opacity-60",
           )}
         >
-          {isSending ? (
-            <div className="flex items-center gap-1.5 py-0.5">
+          {isSending || isWaiting ? (
+            <div
+              className="flex items-center gap-1.5 py-0.5"
+              role="status"
+              aria-label={isWaiting ? "Assistant is typing" : "Sending message"}
+            >
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="size-1.5 animate-bounce rounded-full bg-zinc-500"
+                  className="size-1.5 animate-bounce rounded-full bg-orange-400/70"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
@@ -106,7 +114,7 @@ function MessageBubble({
                   }
                   if (e.key === "Escape") setEditing(false);
                 }}
-                className="min-h-[60px] w-full resize-none rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 focus:outline-none focus:ring-violet-400/50"
+                className="min-h-[60px] w-full resize-none rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 focus:outline-none focus:ring-orange-400/50"
               />
               <div className="flex justify-end gap-2">
                 <button
@@ -119,7 +127,7 @@ function MessageBubble({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  className="rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3 py-1 text-xs font-semibold text-white shadow-md shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-95"
+                  className="rounded-lg bg-gradient-to-br from-orange-600 to-amber-600 px-3 py-1 text-xs font-semibold text-white shadow-md shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-95"
                 >
                   Send
                 </button>
@@ -158,7 +166,7 @@ function MessageBubble({
                 className="flex size-6 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-white/10 hover:text-zinc-300"
               >
                 {copied ? (
-                  <Check className="size-3 text-violet-400" />
+                  <Check className="size-3 text-orange-400" />
                 ) : (
                   <Copy className="size-3" />
                 )}
@@ -236,7 +244,17 @@ export function ChatMessages({
     if (last.id === lastMsgIdRef.current) return;
     lastMsgIdRef.current = last.id;
 
-    if (last.role === "user" || isAtBottomRef.current) {
+    // A just-sent turn always ends with an empty streaming assistant placeholder
+    // (the user's message + the reply are appended together). Force-scroll to it
+    // so the typing indicator is visible even if the user had scrolled up while
+    // reading an earlier reply.
+    const isPendingReply =
+      last.role === "assistant" &&
+      last.status === "streaming" &&
+      last.content === "";
+
+    if (last.role === "user" || isPendingReply || isAtBottomRef.current) {
+      isAtBottomRef.current = true;
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [session.messages]);
@@ -281,8 +299,8 @@ export function ChatMessages({
 
           {isEmpty ? (
             <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 py-24 text-center">
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 ring-1 ring-inset ring-white/10">
-                <Sparkles className="size-5 text-violet-300" />
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/25 to-amber-500/25 ring-1 ring-inset ring-white/10">
+                <Sparkles className="size-5 text-orange-300" />
               </div>
               <p className="text-sm text-zinc-500">
                 No messages yet. Start the conversation below.

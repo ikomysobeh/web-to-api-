@@ -42,8 +42,8 @@ function highlightSnippet(code: string): ReactNode[] {
     if (str) className = "text-emerald-300";
     else if (open || close || eq) className = "text-zinc-500";
     else if (word === "async") className = "text-amber-300";
-    else if (word === "script") className = "text-sky-400";
-    else if (word) className = "text-violet-300";
+    else if (word === "script") className = "text-orange-400";
+    else if (word) className = "text-orange-300";
     nodes.push(
       <span key={key++} className={className}>
         {full}
@@ -101,7 +101,7 @@ function TabButton({
       <Icon className="size-4" />
       {label}
       {active && (
-        <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400" />
+        <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-orange-400 to-amber-400" />
       )}
     </button>
   );
@@ -110,7 +110,7 @@ function TabButton({
 function StepItem({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[11px] font-semibold text-violet-300 ring-1 ring-inset ring-violet-400/20">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-[11px] font-semibold text-orange-300 ring-1 ring-inset ring-orange-400/20">
         {n}
       </span>
       <p className="text-sm leading-relaxed text-zinc-400">{children}</p>
@@ -174,7 +174,7 @@ export function EmbedPage() {
   if (isLoading) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
       </div>
     );
   }
@@ -184,7 +184,7 @@ export function EmbedPage() {
       {/* Header band */}
       <div className="flex items-center justify-between gap-4 border-b border-white/5 px-6 py-6 sm:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-white/5 text-violet-300">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-white/5 text-orange-300">
             <Code2 className="size-5" />
           </div>
           <div>
@@ -198,7 +198,7 @@ export function EmbedPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]"
+          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-orange-600 to-amber-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-orange-500 hover:to-amber-500 active:scale-[0.98]"
         >
           <Plus className="size-4" />
           Create widget
@@ -207,7 +207,7 @@ export function EmbedPage() {
 
       {embeds.length === 0 ? (
         <div className="flex h-72 flex-col items-center justify-center gap-3 px-6">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-violet-300 ring-1 ring-inset ring-violet-400/20">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 text-orange-300 ring-1 ring-inset ring-orange-400/20">
             <Code2 className="size-6" />
           </div>
           <p className="text-sm font-medium text-zinc-300">No widgets yet</p>
@@ -217,7 +217,7 @@ export function EmbedPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="mt-1 text-sm font-medium text-violet-300 transition-colors hover:text-violet-200"
+            className="mt-1 text-sm font-medium text-orange-300 transition-colors hover:text-orange-200"
           >
             Create your first widget
           </button>
@@ -228,7 +228,7 @@ export function EmbedPage() {
           <ul className="space-y-2">
             {embeds.map((embed) => {
               const isSelected = embed.id === effectiveId;
-              const accent = embed.config?.accentColor || "#7c3aed";
+              const accent = embed.config?.accentColor || "#f97316";
               return (
                 <li
                   key={embed.id}
@@ -286,7 +286,7 @@ export function EmbedPage() {
                           type="button"
                           onClick={() => openEdit(embed)}
                           aria-label="Edit widget"
-                          className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                          className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-orange-500/20 hover:text-orange-300"
                         >
                           <Pencil className="size-3.5" />
                         </button>
@@ -338,7 +338,7 @@ export function EmbedPage() {
                       type="button"
                       onClick={() => openEdit(selected)}
                       aria-label="Edit widget"
-                      className="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                      className="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-orange-500/20 hover:text-orange-300"
                     >
                       <Pencil className="size-3.5" />
                     </button>
@@ -442,7 +442,7 @@ export function EmbedPage() {
                         href={`${WIDGET_BASE}/widget?embed=${selected.embed_key}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-violet-300 transition-colors hover:text-violet-200"
+                        className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-orange-300 transition-colors hover:text-orange-200"
                       >
                         <ExternalLink className="size-3.5" />
                         Open full preview in a new tab

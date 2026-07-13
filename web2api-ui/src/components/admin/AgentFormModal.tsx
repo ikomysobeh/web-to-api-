@@ -12,7 +12,7 @@ interface AgentFormModalProps {
 }
 
 const INPUT_CLS =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/50";
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-orange-400/40 focus:outline-none focus:ring-1 focus:ring-orange-400/50";
 
 export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProps) {
   const { createAgent, updateAgent, isSaving } = useAdminStore();
@@ -133,7 +133,7 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
                 onClick={() => setIsActive((v) => !v)}
                 className={cn(
                   "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                  isActive ? "bg-gradient-to-r from-violet-500 to-fuchsia-500" : "bg-zinc-700",
+                  isActive ? "bg-gradient-to-r from-orange-500 to-amber-500" : "bg-zinc-700",
                 )}
               >
                 <span
@@ -159,7 +159,7 @@ export function AgentFormModal({ agent, onClose, onCreated }: AgentFormModalProp
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+              className="rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-[0.98] disabled:opacity-50"
             >
               {isSaving ? "Saving…" : agent ? "Save changes" : "Create"}
             </button>

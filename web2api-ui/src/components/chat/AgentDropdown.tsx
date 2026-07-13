@@ -29,7 +29,7 @@ export function AgentDropdown({
   if (locked) {
     return (
       <span
-        className="inline-flex items-center gap-1.5 rounded-full bg-violet-600/25 px-3 py-1.5 text-xs font-semibold text-violet-300 ring-1 ring-inset ring-violet-500/30"
+        className="inline-flex items-center gap-1.5 rounded-full bg-orange-600/25 px-3 py-1.5 text-xs font-semibold text-orange-300 ring-1 ring-inset ring-orange-500/30"
         aria-label={selectedAgent ? `Agent: ${selectedAgent.name}` : "Agent"}
       >
         <Bot className="size-3.5 shrink-0" />
@@ -65,7 +65,7 @@ export function AgentDropdown({
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
           selectedAgent
-            ? "bg-violet-600/25 text-violet-300 ring-1 ring-inset ring-violet-500/30 hover:bg-violet-600/35"
+            ? "bg-orange-600/25 text-orange-300 ring-1 ring-inset ring-orange-500/30 hover:bg-orange-600/35"
             : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
           disabled && "pointer-events-none opacity-50",
         )}
@@ -91,7 +91,7 @@ export function AgentDropdown({
                 setOpen(false);
               }
             }}
-            className="shrink-0 text-violet-400 hover:text-violet-100"
+            className="shrink-0 text-orange-400 hover:text-orange-100"
           >
             <X className="size-3" />
           </span>

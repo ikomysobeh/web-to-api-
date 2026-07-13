@@ -14,16 +14,16 @@ interface EmbedFormModalProps {
 }
 
 const INPUT_CLS =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/50";
+  "flex h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm text-zinc-100 outline-none transition-[color,box-shadow] placeholder:text-zinc-500 focus-visible:border-orange-400/50 focus-visible:ring-2 focus-visible:ring-orange-400/20 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProps) {
   const { agents, loadAgents } = useAdminStore();
   const { createEmbed, updateEmbed, isSaving } = useEmbedStore();
 
   const [agentId, setAgentId] = useState(embed?.agent_id ?? "");
-  const [title, setTitle] = useState(embed?.config?.title ?? "Lumina Assistant");
+  const [title, setTitle] = useState(embed?.config?.title ?? "PNE LC AI Assistant");
   const [greeting, setGreeting] = useState(embed?.config?.greeting ?? "Hi! How can I help you today?");
-  const [accentColor, setAccentColor] = useState(embed?.config?.accentColor ?? "#7c3aed");
+  const [accentColor, setAccentColor] = useState(embed?.config?.accentColor ?? "#f97316");
   const [position, setPosition] = useState<"bottom-right" | "bottom-left">(
     embed?.config?.position ?? "bottom-right",
   );
@@ -93,31 +93,40 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
 
   return (
     <>
-      <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+      {/* Backdrop */}
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+      />
 
+      {/* Dialog */}
       <div
         role="dialog"
         aria-modal="true"
-        className={cn(
-          "glass-strong fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col",
-          "rounded-2xl p-6",
-        )}
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl backdrop-blur-xl"
       >
-        <div className="mb-5 flex items-center justify-between">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
           <h2 className="text-sm font-semibold text-zinc-100">
             {embed ? "Edit widget" : "Create widget"}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-200"
+            className="flex size-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-200"
           >
             <X className="size-4" />
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5 overflow-y-auto">
-          <SectionLabel>Agent &amp; content</SectionLabel>
+        {/* Scrollable form */}
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+        >
+          {/* ── Agent & content ── */}
+          <SectionLabel first>Agent &amp; content</SectionLabel>
 
           {!embed && (
             <Field label="Agent" required>
@@ -133,22 +142,34 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
           )}
 
           <Field label="Widget title">
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT_CLS} />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={INPUT_CLS}
+            />
           </Field>
 
           <Field label="Greeting message">
-            <input type="text" value={greeting} onChange={(e) => setGreeting(e.target.value)} className={INPUT_CLS} />
+            <input
+              type="text"
+              value={greeting}
+              onChange={(e) => setGreeting(e.target.value)}
+              className={INPUT_CLS}
+            />
           </Field>
 
+          {/* ── Appearance ── */}
           <SectionLabel>Appearance</SectionLabel>
 
-          <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent">
-            <span className="absolute left-3 top-2.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+          {/* Live preview */}
+          <div className="relative h-24 overflow-hidden rounded-lg border border-white/10 bg-white/5">
+            <span className="absolute left-3 top-2.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
               Preview
             </span>
             <div
               className={cn(
-                "absolute flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-white shadow-lg",
+                "absolute flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-white shadow-md",
                 position === "bottom-right" ? "bottom-3 right-3" : "bottom-3 left-3",
               )}
               style={{ backgroundColor: accentColor }}
@@ -165,9 +186,14 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
                   type="color"
                   value={accentColor}
                   onChange={(e) => setAccentColor(e.target.value)}
-                  className="size-9 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-transparent"
+                  className="size-9 shrink-0 cursor-pointer overflow-hidden rounded-md border border-white/10 bg-zinc-800 p-0.5"
                 />
-                <input type="text" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} className={INPUT_CLS} />
+                <input
+                  type="text"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  className={INPUT_CLS}
+                />
               </div>
             </Field>
 
@@ -194,21 +220,29 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
             />
           </Field>
 
+          {/* ── Access ── */}
           <SectionLabel>Access</SectionLabel>
 
-          <Field label="Allowed domains" hint="Press Enter after each one · leave empty to allow any site">
-            <div className={cn(INPUT_CLS, "flex flex-wrap items-center gap-1.5 py-1.5")}>
+          <Field
+            label="Allowed domains"
+            hint="Press Enter after each one · leave empty to allow any site"
+          >
+            <div
+              className={cn(
+                "flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm transition-[color,box-shadow] focus-within:border-orange-400/50 focus-within:ring-2 focus-within:ring-orange-400/20",
+              )}
+            >
               {domains.map((d) => (
                 <span
                   key={d}
-                  className="flex items-center gap-1 rounded-md bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200 ring-1 ring-inset ring-violet-400/20"
+                  className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-zinc-300 ring-1 ring-inset ring-white/10"
                 >
                   {d}
                   <button
                     type="button"
                     onClick={() => removeDomain(d)}
                     aria-label={`Remove ${d}`}
-                    className="text-violet-300/70 transition-colors hover:text-violet-100"
+                    className="text-zinc-500 transition-colors hover:text-zinc-200"
                   >
                     <X className="size-3" />
                   </button>
@@ -226,15 +260,18 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
             </div>
           </Field>
 
+          {/* Active toggle — edit only */}
           {embed && (
-            <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 ring-1 ring-inset ring-white/5">
-              <span className="text-sm text-zinc-300">Active</span>
+            <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+              <span className="text-sm font-medium text-zinc-100">Active</span>
               <button
                 type="button"
                 onClick={() => setIsActive((v) => !v)}
+                aria-checked={isActive}
+                role="switch"
                 className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                  isActive ? "bg-gradient-to-r from-violet-500 to-fuchsia-500" : "bg-zinc-700",
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50",
+                  isActive ? "bg-orange-600" : "bg-zinc-600",
                 )}
               >
                 <span
@@ -249,18 +286,19 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 
-          <div className="flex items-center justify-end gap-3 pt-1">
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
+              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-[0.98] disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white shadow-xs transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSaving ? "Saving…" : embed ? "Save changes" : "Create"}
             </button>
@@ -271,11 +309,9 @@ export function EmbedFormModal({ embed, onClose, onCreated }: EmbedFormModalProp
   );
 }
 
-// Custom dropdown to replace native <select> — native options render with
-// unstyleable browser chrome (white background, blue highlight) that clashes
-// with the app's dark glass theme. Portaled + positioned like AgentDropdown/
-// ModelDropdown elsewhere in the app, so it isn't clipped by this modal's
-// overflow-y-auto form.
+// ── ThemedSelect ─────────────────────────────────────────────────────────────
+// Custom dropdown — native <select> options can't be themed. Portaled so it
+// isn't clipped by the modal's overflow-y-auto.
 function ThemedSelect<T extends string>({
   value,
   onChange,
@@ -338,49 +374,60 @@ function ThemedSelect<T extends string>({
         className={cn(
           INPUT_CLS,
           "flex items-center justify-between gap-2 text-left",
+          !selected?.value && "text-zinc-400",
           disabled && "cursor-not-allowed opacity-50",
         )}
       >
-        <span className={cn("truncate", !selected && "text-zinc-500")}>
-          {selected ? selected.label : "Select…"}
-        </span>
+        <span className="truncate">{selected ? selected.label : "Select…"}</span>
         <ChevronDown
           className={cn(
-            "size-4 shrink-0 text-zinc-500 transition-transform duration-200",
+            "size-4 shrink-0 text-zinc-400 transition-transform duration-200",
             open && "rotate-180",
           )}
         />
       </button>
+
       {open &&
         createPortal(
           <div
             ref={menuRef}
             role="listbox"
             style={menuStyle}
-            className="glass-strong max-h-64 overflow-y-auto rounded-xl p-1.5 shadow-2xl"
+            className="overflow-hidden rounded-lg border border-white/10 bg-zinc-900 p-1 shadow-2xl ring-1 ring-inset ring-white/5"
           >
-            {options.map((opt) => {
+            {options.map((opt, idx) => {
               const active = opt.value === value;
+              const isPlaceholder = idx === 0 && opt.value === "";
               return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                    active ? "bg-violet-500/15 text-violet-200" : "text-zinc-300 hover:bg-white/5",
+                <div key={opt.value}>
+                  {idx === 1 && options[0]?.value === "" && (
+                    <div className="mx-2 my-1 h-px bg-white/8" />
                   )}
-                >
-                  <span className="flex size-4 shrink-0 items-center justify-center">
-                    {active && <Check className="size-3.5 text-violet-400" />}
-                  </span>
-                  <span className="truncate">{opt.label}</span>
-                </button>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
+                      active && !isPlaceholder
+                        ? "bg-orange-500/15 text-orange-200"
+                        : isPlaceholder
+                          ? "text-zinc-500 hover:bg-white/5"
+                          : "text-zinc-300 hover:bg-white/8",
+                    )}
+                  >
+                    <span className="flex size-4 shrink-0 items-center justify-center">
+                      {active && !isPlaceholder && (
+                        <Check className="size-3.5 text-orange-400" />
+                      )}
+                    </span>
+                    <span className="truncate">{opt.label}</span>
+                  </button>
+                </div>
               );
             })}
           </div>,
@@ -390,6 +437,7 @@ function ThemedSelect<T extends string>({
   );
 }
 
+// ── Field ────────────────────────────────────────────────────────────────────
 function Field({
   label,
   required,
@@ -402,21 +450,33 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+    <div className="flex flex-col gap-1.5">
+      <label className="select-none text-sm font-medium leading-none text-zinc-300">
         {label}
         {required && <span className="ml-0.5 text-red-400">*</span>}
       </label>
       {children}
-      {hint && <p className="mt-1.5 text-[11px] text-zinc-600">{hint}</p>}
+      {hint && <p className="text-[11px] text-zinc-500">{hint}</p>}
     </div>
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+// ── SectionLabel ─────────────────────────────────────────────────────────────
+function SectionLabel({ children, first }: { children: React.ReactNode; first?: boolean }) {
+  if (first) {
+    return (
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+        {children}
+      </p>
+    );
+  }
   return (
-    <p className="border-t border-white/5 pt-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 first:border-t-0 first:pt-0">
-      {children}
-    </p>
+    <div className="flex items-center gap-3 py-0.5">
+      <div className="h-px flex-1 bg-white/10" />
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+        {children}
+      </span>
+      <div className="h-px flex-1 bg-white/10" />
+    </div>
   );
 }

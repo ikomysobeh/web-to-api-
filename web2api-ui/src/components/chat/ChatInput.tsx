@@ -33,7 +33,7 @@ export interface ChatInputProps {
 
 export function ChatInput({
   onSubmit,
-  placeholder = "Ask Lumina anything…",
+  placeholder = "Ask PNE LC AI anything…",
   disabled = false,
   initialValue = "",
   myAgents = [],
@@ -84,7 +84,7 @@ export function ChatInput({
         aria-label="Chat input"
         className={cn(
           "glass flex w-full flex-col rounded-4xl px-3 pb-3 pt-3",
-          "transition-all duration-200 focus-within:border-violet-400/30 focus-within:shadow-[0_0_0_1px_rgba(167,139,250,0.25),0_16px_40px_-20px_rgba(124,58,237,0.5)]",
+          "transition-all duration-200 focus-within:border-orange-400/30 focus-within:shadow-[0_0_0_1px_rgba(251,146,60,0.25),0_16px_40px_-20px_rgba(234,88,12,0.5)]",
           disabled && "opacity-60",
         )}
       >
@@ -157,7 +157,7 @@ export function ChatInput({
                     size="icon-sm"
                     onClick={handleSend}
                     aria-label="Send message"
-                    className="size-8 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-950/50 transition-all hover:shadow-violet-900/60 active:scale-95"
+                    className="size-8 rounded-full bg-gradient-to-br from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-950/50 transition-all hover:shadow-orange-900/60 active:scale-95"
                   >
                     <ArrowUp className="size-4" />
                   </Button>

@@ -53,7 +53,7 @@ export default function LoginPage() {
   if (authLoading) {
     return (
       <div className="app-bg flex h-screen w-screen items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
       </div>
     )
   }
@@ -61,20 +61,14 @@ export default function LoginPage() {
   return (
     <div className="app-bg relative flex h-screen w-screen items-center justify-center overflow-hidden p-4">
       {/* Ambient glow */}
-      <div className="pointer-events-none absolute left-1/2 top-0 size-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-0 size-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-orange-600/20 to-amber-600/10 blur-3xl" />
 
       <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl">
         {/* Brand */}
         <div className="mb-7 flex flex-col items-center text-center">
-          <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
-            <svg viewBox="0 0 24 24" fill="none" className="size-6 text-white" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
-              <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
-              <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
-            </svg>
-          </div>
+          <img src="/favicon.svg" alt="PNE LC AI" className="mb-4 size-12" />
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">Welcome back</h1>
-          <p className="mt-1 text-sm text-zinc-400">Sign in to your Lumina AI account</p>
+          <p className="mt-1 text-sm text-zinc-400">Sign in to your PNE LC AI account</p>
         </div>
 
         {error && (
@@ -98,7 +92,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-orange-400/40 focus:outline-none focus:ring-1 focus:ring-orange-400/40"
                 placeholder="you@example.com"
               />
             </div>
@@ -118,7 +112,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-10 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-violet-400/40 focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-10 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors focus:border-orange-400/40 focus:outline-none focus:ring-1 focus:ring-orange-400/40"
                 placeholder="••••••••"
               />
               <button
@@ -136,7 +130,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-orange-500 hover:to-amber-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? 'Signing in…' : 'Sign in'}

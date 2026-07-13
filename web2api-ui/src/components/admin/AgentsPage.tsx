@@ -38,7 +38,7 @@ export function AgentsPage() {
   if (isLoadingAgents) {
     return (
       <div className="flex h-40 items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-violet-500" />
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-700 border-t-orange-500" />
       </div>
     );
   }
@@ -48,7 +48,7 @@ export function AgentsPage() {
       {/* ── Header band ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 border-b border-white/5 px-6 py-6 sm:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-white/5 text-violet-300">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-white/5 text-orange-300">
             <Bot className="size-5" />
           </div>
           <div>
@@ -61,7 +61,7 @@ export function AgentsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]"
+          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-orange-600 to-amber-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:from-orange-500 hover:to-amber-500 active:scale-[0.98]"
         >
           <Plus className="size-4" />
           Create agent
@@ -70,14 +70,14 @@ export function AgentsPage() {
 
       {agents.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center gap-3">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/5 text-violet-300">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/5 text-orange-300">
             <Bot className="size-6" />
           </div>
           <p className="text-sm text-zinc-500">No agents yet</p>
           <button
             type="button"
             onClick={openCreate}
-            className="text-sm font-medium text-violet-300 transition-colors hover:text-violet-200"
+            className="text-sm font-medium text-orange-300 transition-colors hover:text-orange-200"
           >
             Create your first agent
           </button>
@@ -111,7 +111,7 @@ export function AgentsPage() {
                       {initialsOf(agent.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-zinc-100 transition-colors group-hover:text-violet-400">
+                      <p className="font-medium text-zinc-100 transition-colors group-hover:text-orange-400">
                         {agent.name}
                       </p>
                       {agent.description && (
@@ -154,7 +154,7 @@ export function AgentsPage() {
                       type="button"
                       onClick={() => openEdit(agent)}
                       aria-label="Edit agent"
-                      className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                      className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-orange-500/20 hover:text-orange-300"
                     >
                       <Pencil className="size-3.5" />
                     </button>

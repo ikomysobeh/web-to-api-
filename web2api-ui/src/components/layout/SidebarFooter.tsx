@@ -91,7 +91,7 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
           type="button"
           onClick={toggleCollapsedMenu}
           aria-label="Account menu"
-          className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40 transition-transform hover:scale-105"
+          className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-[10px] font-bold text-white shadow-md shadow-orange-950/40 transition-transform hover:scale-105"
         >
           {initials}
         </button>
@@ -129,7 +129,7 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps) {
           dropdownOpen && "bg-white/5",
         )}
       >
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white shadow-md shadow-violet-950/40">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-[10px] font-bold text-white shadow-md shadow-orange-950/40">
           {initials}
         </div>
         <p className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">{email}</p>

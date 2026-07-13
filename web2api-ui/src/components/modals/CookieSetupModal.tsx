@@ -53,8 +53,8 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
       <div className="glass-strong w-full max-w-md rounded-2xl p-8">
         {/* Header */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 ring-1 ring-inset ring-white/10">
-            <svg viewBox="0 0 24 24" fill="none" className="size-7 text-violet-300" stroke="currentColor" strokeWidth="1.5">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/25 to-amber-500/25 ring-1 ring-inset ring-white/10">
+            <svg viewBox="0 0 24 24" fill="none" className="size-7 text-orange-300" stroke="currentColor" strokeWidth="1.5">
               <path d="M13.5 10.5L21 3m0 0h-6m6 0v6" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10.5 13.5L3 21m0 0h6m-6 0v-6" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="12" cy="12" r="3" />
@@ -62,20 +62,20 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
           </div>
           <h2 className="text-xl font-semibold tracking-tight text-zinc-50">Connect your Gemini account</h2>
           <p className="mt-1.5 text-sm text-zinc-400">
-            One click in the Lumina extension connects your Gemini session automatically.
+            One click in the PNE LC extension connects your Gemini session automatically.
           </p>
         </div>
 
         {/* Steps */}
         <ol className="mb-6 flex flex-col gap-3">
           {[
-            { n: 1, text: 'Install the', highlight: 'Lumina Extension', after: 'in Chrome' },
-            { n: 2, text: 'Sign in to', highlight: 'Lumina AI', after: 'on this page' },
-            { n: 3, text: 'Click the', highlight: 'Lumina icon', after: 'in your Chrome toolbar' },
+            { n: 1, text: 'Install the', highlight: 'PNE LC Extension', after: 'in Chrome' },
+            { n: 2, text: 'Sign in to', highlight: 'PNE LC AI', after: 'on this page' },
+            { n: 3, text: 'Click the', highlight: 'PNE LC icon', after: 'in your Chrome toolbar' },
             { n: 4, text: 'Click', highlight: '"Connect Gemini Automatically"', after: '— done!' },
           ].map((step) => (
             <li key={step.n} className="flex items-start gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 text-xs font-bold text-violet-300 ring-1 ring-inset ring-white/10">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500/25 to-amber-500/25 text-xs font-bold text-orange-300 ring-1 ring-inset ring-white/10">
                 {step.n}
               </span>
               <p className="text-sm text-zinc-300">
@@ -91,8 +91,8 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
         {status === 'waiting' && (
           <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
             <span className="relative flex size-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
-              <span className="relative inline-flex size-2.5 rounded-full bg-violet-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-orange-500" />
             </span>
             <p className="text-sm text-zinc-400">Waiting for extension to connect Gemini…</p>
           </div>
@@ -100,7 +100,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
 
         {status === 'saving' && (
           <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-            <svg className="size-4 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
+            <svg className="size-4 animate-spin text-orange-400" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
@@ -130,7 +130,7 @@ export function CookieSetupModal({ onSuccess }: CookieSetupModalProps) {
         )}
 
         <p className="mt-4 text-center text-xs text-zinc-600">
-          Your cookies are sent only to your local Lumina AI instance and stored securely.
+          Your cookies are sent only to your local PNE LC AI instance and stored securely.
         </p>
       </div>
     </div>
