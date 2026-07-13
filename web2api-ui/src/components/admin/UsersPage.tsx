@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Shield, Users as UsersIcon } from "lucide-react";
+import { Shield, Users as UsersIcon } from "lucide-react";
 import { useAdminStore } from "@/stores/adminStore";
 import { gradientFor, initialsOf } from "@/lib/gradients";
 import { cn } from "@/lib/utils";
 
 export function UsersPage() {
   const { users, isLoadingUsers, loadUsers, usersPagination } = useAdminStore();
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
 
   useEffect(() => {
     void loadUsers(page);
   }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { total, lastPage, currentPage } = usersPagination;
+  const { total } = usersPagination;
 
   if (isLoadingUsers) {
     return (

@@ -123,7 +123,14 @@ async def verify_with_pizzasys(token: str, method: str, path: str) -> Optional[d
                 },
             )
         if not resp.is_success:
-            logger.warning(f"pizzasys token-verify returned {resp.status_code}")
+            logger.warning(
+                f"pizzasys token-verify returned {resp.status_code} | "
+                f"call_token_len={len(AUTH_SERVER_CALL_TOKEN)} "
+                f"call_token_prefix={AUTH_SERVER_CALL_TOKEN[:8]!r} | "
+                f"user_token_prefix={token[:8]!r} | "
+                f"service={AUTH_SERVER_SERVICE_NAME} | "
+                f"endpoint={endpoint}"
+            )
             return None
 
         data = resp.json()
