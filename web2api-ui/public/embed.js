@@ -47,9 +47,11 @@
   var style = document.createElement("style");
   style.textContent =
     ".lumina-bubble{position:fixed;bottom:20px;" + side +
-    "width:56px;height:56px;border-radius:50%;background:#7c3aed;color:#fff;border:none;" +
+    "width:56px;height:56px;border-radius:50%;background:#f97316;color:#fff;border:none;" +
     "cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:2147483646;display:flex;" +
-    "align-items:center;justify-content:center;font-size:24px;}" +
+    "align-items:center;justify-content:center;transition:background-color .15s ease,transform .15s ease;}" +
+    ".lumina-bubble:hover{background:#ea580c;transform:scale(1.05);}" +
+    ".lumina-bubble svg{width:24px;height:24px;}" +
     ".lumina-frame{position:fixed;bottom:88px;" + side +
     "width:380px;height:560px;max-width:calc(100vw - 40px);max-height:calc(100vh - 120px);" +
     "border:none;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.35);z-index:2147483646;" +
@@ -57,10 +59,20 @@
     ".lumina-frame.open{display:block;}";
   root.appendChild(style);
 
+  // Sparkle (closed) / X (open) icons, inline so they render identically
+  // across platforms — matches the chat panel header's lucide Sparkles icon.
+  var SPARKLE_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4' +
+    'M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>';
+  var CLOSE_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
   var bubble = document.createElement("button");
   bubble.className = "lumina-bubble";
   bubble.setAttribute("aria-label", "Open chat");
-  bubble.textContent = "💬";
+  bubble.innerHTML = SPARKLE_SVG;
   root.appendChild(bubble);
 
   var iframe = document.createElement("iframe");
@@ -76,7 +88,7 @@
   function toggle() {
     opened = !opened;
     iframe.classList.toggle("open", opened);
-    bubble.textContent = opened ? "✕" : "💬";
+    bubble.innerHTML = opened ? CLOSE_SVG : SPARKLE_SVG;
   }
   bubble.addEventListener("click", toggle);
 
