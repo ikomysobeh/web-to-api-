@@ -54,7 +54,12 @@ export function WidgetAgentMenu({
         aria-expanded={open}
         aria-label="New chat"
         title="New chat"
-        className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/30"
+        className={
+          light
+            ? "flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+            : "flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/5"
+        }
+        style={{ color: accentColor }}
       >
         <Plus className="size-3.5 shrink-0" />
         <span className="hidden sm:inline">New chat</span>

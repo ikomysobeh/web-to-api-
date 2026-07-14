@@ -280,7 +280,13 @@ export default function WidgetPage() {
     if (!token || !extInstalled) return;
     setConnectError("");
     setConnectPhase("connecting");
-    window.dispatchEvent(new CustomEvent("lumina:connect-gemini", { detail: { token } }));
+    // Pass the backend URL so the extension posts the Gemini cookies to the same
+    // bridge this widget uses (local or production).
+    window.dispatchEvent(
+      new CustomEvent("lumina:connect-gemini", {
+        detail: { token, backendUrl: API_BASE },
+      }),
+    );
   }
 
   function openLogin() {
