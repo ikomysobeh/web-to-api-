@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, Bot, MessageCircleQuestion, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, MessageCircleQuestion } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/MarkdownMessage";
 import { WidgetAgentMenu } from "@/components/widget/WidgetAgentMenu";
 import type { Suggestion, UserAgent } from "@/types/chat";
@@ -65,32 +65,53 @@ export function WidgetChat({
 
   return (
     <div className={light ? "flex h-full flex-col bg-white text-zinc-900" : "flex h-full flex-col bg-zinc-950 text-zinc-100"}>
-      {/* Header */}
-      <div
-        className="flex items-center gap-2.5 px-4 py-3 text-white"
-        style={{ background: accentColor }}
-      >
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/20">
-          <Sparkles className="size-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold leading-tight">{title}</div>
-          {activeAgent && (
-            <div className="truncate text-[11px] leading-tight text-white/80">
-              {activeAgent.name}
-            </div>
+      {/* Header — no colored bar. The host (dashboard modal) shows the main
+          "PNE LC AI Assistant" title; here we show the active agent just under
+          it, with the New-chat dropdown floating in the corner. */}
+      {(activeAgent || (onNewChat && agents.length > 0)) && (
+        <div
+          className={
+            light
+              ? "flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2.5"
+              : "flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5"
+          }
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            {activeAgent ? (
+              <>
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: `${accentColor}1f`, color: accentColor }}
+                >
+                  <Bot className="size-3.5" />
+                </span>
+                <span
+                  className={
+                    light
+                      ? "truncate text-sm font-semibold text-zinc-900"
+                      : "truncate text-sm font-semibold text-zinc-100"
+                  }
+                >
+                  {activeAgent.name}
+                </span>
+              </>
+            ) : (
+              <span className={light ? "text-sm text-zinc-500" : "text-sm text-zinc-400"}>
+                {title}
+              </span>
+            )}
+          </div>
+          {onNewChat && agents.length > 0 && (
+            <WidgetAgentMenu
+              agents={agents}
+              selectedAgentId={selectedAgentId}
+              accentColor={accentColor}
+              light={light}
+              onNewChat={onNewChat}
+            />
           )}
         </div>
-        {onNewChat && agents.length > 0 && (
-          <WidgetAgentMenu
-            agents={agents}
-            selectedAgentId={selectedAgentId}
-            accentColor={accentColor}
-            light={light}
-            onNewChat={onNewChat}
-          />
-        )}
-      </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
@@ -170,21 +191,10 @@ export function WidgetChat({
         <div
           className={
             light
-              ? "flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2"
-              : "flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+              ? "flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2"
+              : "flex items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
           }
         >
-          {activeAgent && (
-            <span
-              className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-              style={{ background: `${accentColor}22`, color: accentColor }}
-              aria-label={`Agent: ${activeAgent.name}`}
-            >
-              <Bot className="size-3.5 shrink-0" />
-              <span className="max-w-40 truncate">{activeAgent.name}</span>
-            </span>
-          )}
-          <div className="flex items-end gap-2">
           <textarea
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -207,7 +217,6 @@ export function WidgetChat({
           >
             <ArrowUp className="size-4" />
           </button>
-          </div>
         </div>
       </div>
     </div>
