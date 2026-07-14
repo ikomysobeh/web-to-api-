@@ -198,6 +198,9 @@ export interface UserAgent {
   id: string;
   name: string;
   description: string;
+  // Returned by GET /api/agents; used only to forward a model hint on send
+  // (the backend overrides it with the agent's own model anyway).
+  model?: string;
 }
 
 // ---------------------------------------------------------------------------

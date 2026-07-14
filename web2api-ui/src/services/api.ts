@@ -3,6 +3,11 @@ import type { AdminUser, Agent, AgentCreate, AgentDocument, AgentUpdate, AgentUs
 const BASE = (import.meta.env.VITE_API_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
 
+// The bridge base the widget talks to. Exported so the embed host (dashboard)
+// can learn which bridge actually holds this user's Gemini cookies and target
+// its logout DELETE at the same host.
+export const API_BASE = BASE;
+
 const AUTH_BASE = (import.meta.env.VITE_AUTH_URL as string | undefined)
   ?.replace(/\/$/, "") ?? "http://127.0.0.1:8001";
 
@@ -119,11 +124,16 @@ export async function chatStream(
   token: string,
   message: string,
   model: string,
+  agentId?: string | null,
 ): Promise<Response> {
+  const body: Record<string, string> = { message, model };
+  // When set, the backend validates the agent is assigned to the caller (403
+  // otherwise) and answers with that agent's model + instructions + knowledge.
+  if (agentId) body.agent_id = agentId;
   const res = await fetch(`${BASE}/api/chat`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ message, model }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw res;
   return res;
