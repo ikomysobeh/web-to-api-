@@ -15,7 +15,7 @@ import uuid
 import logging
 from dotenv import load_dotenv
 
-from database import init_db, get_connection
+from database import init_db, get_connection, close_pool
 from auth import hash_password, verify_password, create_token, get_current_user, require_admin, require_permission, validate_with_laravel
 from nats_sync import start_nats_sync, get_nats_status
 from vector import ingest_document, search_chunks, extract_text
@@ -85,6 +85,12 @@ async def startup():
     # Start NATS subscriber in background
     asyncio.create_task(start_nats_sync())
     logger.info("NATS sync task started")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    # Return all pooled DB connections cleanly on shutdown.
+    close_pool()
 
 # CORS — like config/cors.php in Laravel
 # Local dev origins are always allowed. Add production origins via the

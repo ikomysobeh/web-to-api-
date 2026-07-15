@@ -39,3 +39,5 @@ pypdf==5.1.0
 python-docx==1.1.2
 # Async file handling
 aiofiles==24.1.0
+# Redis cache client (Phase 2 — embedding / search / response caching)
+redis==5.2.1

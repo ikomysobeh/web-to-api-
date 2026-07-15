@@ -25,6 +25,23 @@ services:
     networks:
       - webai_network
 
+  # Redis — shared cache for embeddings / search results / responses (Phase 2).
+  # Internal-only: reached by the bridge as redis://redis:6379. Not exposed to
+  # the internet. Small footprint (~50 MB). maxmemory cap + LRU eviction so it
+  # never eats the VPS RAM — old cache entries are dropped automatically.
+  redis:
+    image: redis:7-alpine
+    container_name: webai-redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - webai_network
+
   # WebAI-to-API
   webai:
     build:
@@ -80,6 +97,11 @@ services:
       # Ollama runs on the VPS/host; containers reach it via host-gateway.
       OLLAMA_URL: ${OLLAMA_URL:-http://host-gateway:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
+      # Max embedding calls sent to Ollama at once. Match your CPU count (2 on
+      # KVM 2). Pairs with OLLAMA_NUM_PARALLEL on the Ollama server (Task 3).
+      OLLAMA_MAX_CONCURRENCY: ${OLLAMA_MAX_CONCURRENCY:-2}
+      # Redis cache (Phase 2). If unset, the app runs fine without caching.
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     ports:
       - "8000:8000"
     healthcheck:
@@ -91,6 +113,8 @@ services:
       db:
         condition: service_healthy
       webai:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
