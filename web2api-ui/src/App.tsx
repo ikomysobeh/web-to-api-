@@ -9,6 +9,7 @@ import { EmbedPage } from '@/components/admin/EmbedPage'
 import { UsersPage } from '@/components/admin/UsersPage'
 import LoginPage from '@/pages/LoginPage'
 import WidgetPage from '@/pages/WidgetPage'
+import InstallPage from '@/pages/InstallPage'
 import type { ReactNode } from 'react'
 
 function Spinner() {
@@ -40,6 +41,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/install" element={<InstallPage />} />
           <Route path="/widget" element={<WidgetPage />} />
           <Route
             path="/chat"

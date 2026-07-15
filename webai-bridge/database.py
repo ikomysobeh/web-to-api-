@@ -1,23 +1,114 @@
 # database.py
 
 import os
+import logging
 import psycopg2
 import psycopg2.extras
+from psycopg2 import pool
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger("database")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/webai_bridge")
+
+# Pool size — how many real PostgreSQL connections we keep open and reuse.
+# minconn: opened right away.  maxconn: hard ceiling shared by ALL requests.
+# 20 is comfortably below PostgreSQL's default limit of 100.
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "5"))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+
+# The one shared pool for the whole app. Created lazily on first use so that
+# importing this module never fails just because the DB isn't up yet.
+_pool: "pool.ThreadedConnectionPool | None" = None
+
+
+def _get_pool() -> "pool.ThreadedConnectionPool":
+    global _pool
+    if _pool is None:
+        _pool = pool.ThreadedConnectionPool(
+            DB_POOL_MIN,
+            DB_POOL_MAX,
+            dsn=DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+        logger.info(f"DB pool created (min={DB_POOL_MIN}, max={DB_POOL_MAX})")
+    return _pool
+
+
+class _PooledConnection:
+    """
+    A thin wrapper around a real psycopg2 connection borrowed from the pool.
+
+    Everything (cursor(), commit(), rollback(), ...) is forwarded to the real
+    connection. The ONLY difference is close(): instead of destroying the
+    connection, it hands it back to the pool so the next request can reuse it.
+
+    This lets every existing `conn = get_connection() ... conn.close()` in the
+    codebase keep working unchanged — close() now means "return to pool".
+    """
+
+    def __init__(self, real_conn, owner_pool):
+        # Use object.__setattr__ so we don't trigger our own __getattr__.
+        object.__setattr__(self, "_real", real_conn)
+        object.__setattr__(self, "_pool", owner_pool)
+        object.__setattr__(self, "_returned", False)
+
+    def close(self):
+        if self._returned:
+            return  # guard against double-close returning it twice
+        object.__setattr__(self, "_returned", True)
+        try:
+            # Clear any leftover transaction state before reuse so a half-done
+            # transaction from one request can never leak into the next.
+            self._real.rollback()
+        except Exception:
+            pass
+        self._pool.putconn(self._real)
+
+    # Forward every other attribute/method to the real connection.
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    # Support use as a context manager (with get_connection() as conn:)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 
 def get_connection():
     """
-    Open a PostgreSQL connection.
-    Like Laravel's DB::connection().
-    psycopg2.extras.RealDictCursor lets you access columns by name: row["email"]
+    Borrow a PostgreSQL connection from the shared pool.
+
+    Drop-in replacement for the old "open a new connection" version — same
+    usage everywhere. Call conn.close() when done; that now RETURNS the
+    connection to the pool instead of destroying it (like Laravel's pool).
     """
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-    return conn
+    return _PooledConnection(_get_pool().getconn(), _get_pool())
+
+
+def release_connection(conn):
+    """
+    Explicit alternative to conn.close(). Both do the same thing (return to
+    pool). Provided so new code can be extra clear about intent.
+    """
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def close_pool():
+    """Close every pooled connection. Call on app shutdown."""
+    global _pool
+    if _pool is not None:
+        _pool.closeall()
+        _pool = None
+        logger.info("DB pool closed")
 
 
 def init_db():
@@ -157,11 +248,18 @@ def init_db():
         )
     """)
 
-    # Index for fast cosine similarity search
+    # --- Vector similarity index: HNSW (upgraded from IVFFlat) ---
+    # HNSW keeps search fast as the table grows (logarithmic), gives better
+    # recall, and needs no retraining when rows change. IVFFlat scaled linearly
+    # and its clusters go stale after many inserts — so we drop it and use HNSW.
+    #   m               = connections per node (16 = pgvector default, good)
+    #   ef_construction = build-time accuracy/speed tradeoff (64 = default)
+    # Query-time recall is tuned with hnsw.ef_search (see search_chunks / docs).
+    cursor.execute("DROP INDEX IF EXISTS document_chunks_embedding_idx")
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
-        ON document_chunks USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = 100)
+        CREATE INDEX IF NOT EXISTS document_chunks_embedding_hnsw_idx
+        ON document_chunks USING hnsw (embedding vector_cosine_ops)
+        WITH (m = 16, ef_construction = 64)
     """)
 
     # --- user_agents assignment table ---
