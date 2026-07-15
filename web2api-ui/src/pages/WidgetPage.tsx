@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { getEmbedBootstrap, embedChatStream, getCookiesStatus } from "@/services/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getEmbedBootstrap,
+  chatStream,
+  getCookiesStatus,
+  getMe,
+  listMyAgents,
+  getMyAgentSuggestions,
+  API_BASE,
+} from "@/services/api";
 import { WidgetChat, type WidgetMessage } from "@/components/widget/WidgetChat";
 import { GeminiSetupGuide, type GeminiGuideState } from "@/components/widget/GeminiSetupGuide";
-import type { EmbedConfigAppearance, Suggestion } from "@/types/chat";
+import type { EmbedConfigAppearance, Suggestion, UserAgent } from "@/types/chat";
 
 const AUTH_BASE_FOR_LOGIN =
   (import.meta.env.VITE_WIDGET_URL as string | undefined)?.replace(/\/$/, "") ??
@@ -10,6 +18,13 @@ const AUTH_BASE_FOR_LOGIN =
 
 function getEmbedKey(): string {
   return new URLSearchParams(window.location.search).get("embed") ?? "";
+}
+
+// Optional theme override from the host (e.g. the dashboard passes ?theme=dark|light
+// so the embedded chat matches its light/dark mode).
+function getThemeParam(): "dark" | "light" | null {
+  const t = new URLSearchParams(window.location.search).get("theme");
+  return t === "dark" || t === "light" ? t : null;
 }
 
 type Phase = "waiting-token" | "loading" | "ready" | "error";
@@ -23,6 +38,9 @@ export default function WidgetPage() {
   const [appearance, setAppearance] = useState<EmbedConfigAppearance>({});
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [geminiConnected, setGeminiConnected] = useState(false);
+  // True only once a cookie-status check has actually completed, so the
+  // history-restore/purge logic below never runs on a guess.
+  const [cookieChecked, setCookieChecked] = useState(false);
   const [connectPhase, setConnectPhase] = useState<"idle" | "connecting" | "success" | "error">("idle");
   const [connectError, setConnectError] = useState("");
   const [extInstalled, setExtInstalled] = useState(
@@ -31,6 +49,32 @@ export default function WidgetPage() {
 
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Agents assigned to the logged-in user (GET /api/agents is scoped by token).
+  // The user picks one via the header "New chat" menu; chat is sent to that
+  // agent through POST /api/chat.
+  const [myAgents, setMyAgents] = useState<UserAgent[]>([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  // Per-user, per-agent chat history persisted in this widget's localStorage so a
+  // returning user sees their previous conversation. Keyed by embed + user email
+  // + agent id to isolate users on shared devices and threads per agent.
+  const [userKey, setUserKey] = useState<string | null>(null);
+  const defaultSelectedRef = useRef(false);
+  const historyRestoredRef = useRef(false);
+  const purgedRef = useRef(false);
+  const lastAgentKey = useCallback(
+    (uk: string) => `lumina_last_agent:${embedKey}:${uk}`,
+    [embedKey],
+  );
+  const chatKey = useCallback(
+    (uk: string, agentId: string) => `lumina_chat:${embedKey}:${uk}:${agentId}`,
+    [embedKey],
+  );
+  // Drop the transient empty assistant placeholder before persisting/restoring.
+  const cleanHistory = (list: WidgetMessage[]) =>
+    list.filter((m) => m.role === "user" || m.content);
 
   // Show the "connected" confirmation briefly, then reveal the chat.
   const markConnected = useCallback(() => {
@@ -47,9 +91,11 @@ export default function WidgetPage() {
     return () => clearTimeout(id);
   }, []);
 
-  // 1. Tell the parent we're ready to receive the token
+  // 1. Tell the parent we're ready to receive the token, and report which bridge
+  // holds this user's cookies so the host can target its logout DELETE correctly.
   useEffect(() => {
     window.parent?.postMessage({ type: "ready" }, "*");
+    window.parent?.postMessage({ type: "lumina-bridge", bridge: API_BASE }, "*");
   }, []);
 
   // 2. Receive the auth token from embed.js (or the login popup)
@@ -85,9 +131,116 @@ export default function WidgetPage() {
         setPhase("error");
       });
     getCookiesStatus(token)
-      .then((s) => setGeminiConnected(s.connected))
+      .then((s) => {
+        setGeminiConnected(s.connected);
+        setCookieChecked(true);
+      })
       .catch(() => setGeminiConnected(false));
   }, [token, embedKey]);
+
+  // 3b. Resolve the user's identity so history is scoped per user.
+  useEffect(() => {
+    if (!token) return;
+    getMe(token)
+      .then((u) => setUserKey(u.email || "anon"))
+      .catch(() => setUserKey("anon"));
+  }, [token]);
+
+  // 3b2. Load the agents assigned to this user (server-scoped by the token).
+  useEffect(() => {
+    if (!token) return;
+    listMyAgents(token)
+      .then((r) => setMyAgents(r.agents ?? []))
+      .catch(() => setMyAgents([]))
+      .finally(() => setAgentsLoaded(true));
+  }, [token]);
+
+  // 3c. Once agents + identity are known, pick the default agent (last-used if
+  // still assigned, else the first). Runs once — subsequent agent switches go
+  // through "New chat" (a fresh thread).
+  useEffect(() => {
+    if (!agentsLoaded || !userKey || defaultSelectedRef.current) return;
+    if (myAgents.length === 0) return;
+    defaultSelectedRef.current = true;
+
+    let pick = myAgents[0].id;
+    try {
+      const last = localStorage.getItem(lastAgentKey(userKey));
+      if (last && myAgents.some((a) => a.id === last)) pick = last;
+    } catch { /* ignore */ }
+
+    setSelectedAgentId(pick);
+  }, [agentsLoaded, userKey, myAgents, lastAgentKey]);
+
+  // 3c2. Restore the picked agent's saved thread — but only once Gemini is
+  // confirmed connected. A logout drops the user's cookies on the bridge, so a
+  // returning session that hasn't reconnected yet must NOT resume an old thread.
+  useEffect(() => {
+    if (!userKey || !selectedAgentId || !cookieChecked || !geminiConnected) return;
+    if (historyRestoredRef.current) return;
+    historyRestoredRef.current = true;
+    try {
+      const raw = localStorage.getItem(chatKey(userKey, selectedAgentId));
+      if (raw) {
+        const saved = JSON.parse(raw) as WidgetMessage[];
+        if (Array.isArray(saved) && saved.length) {
+          setMessages((cur) => (cur.length ? cur : cleanHistory(saved)));
+        }
+      }
+    } catch { /* ignore corrupt/unavailable storage */ }
+  }, [userKey, selectedAgentId, cookieChecked, geminiConnected, chatKey]);
+
+  // 3c3. A confirmed disconnected state (fresh login after a prior logout, or
+  // never connected) means the bridge holds no session — treat it as a clean
+  // slate: drop this user's saved threads so a later reconnect starts fresh.
+  useEffect(() => {
+    if (!userKey || !cookieChecked || geminiConnected) return;
+    if (purgedRef.current) return;
+    purgedRef.current = true;
+    try {
+      const prefix = `lumina_chat:${embedKey}:${userKey}:`;
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) toRemove.push(k);
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    setMessages([]);
+  }, [userKey, cookieChecked, geminiConnected, embedKey]);
+
+  // 3c2. Load the selected agent's suggestion cards.
+  useEffect(() => {
+    if (!token || !selectedAgentId) return;
+    getMyAgentSuggestions(token, selectedAgentId)
+      .then((r) => setSuggestions(r.suggestions ?? []))
+      .catch(() => setSuggestions([]));
+  }, [token, selectedAgentId]);
+
+  // 3d. Persist the current thread (last 50, placeholder stripped) per agent.
+  useEffect(() => {
+    if (!userKey || !selectedAgentId) return;
+    try {
+      const clean = cleanHistory(messages).slice(-50);
+      if (clean.length) {
+        localStorage.setItem(chatKey(userKey, selectedAgentId), JSON.stringify(clean));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [messages, userKey, selectedAgentId, chatKey]);
+
+  // Start a fresh chat with the chosen agent (from the header "New chat" menu).
+  const handleNewChat = useCallback(
+    (agentId: string) => {
+      setSelectedAgentId(agentId);
+      setMessages([]);
+      if (userKey) {
+        try { localStorage.setItem(lastAgentKey(userKey), agentId); } catch { /* ignore */ }
+      }
+    },
+    [userKey, lastAgentKey],
+  );
 
   // 4. Listen for Gemini connect progress from the extension
   useEffect(() => {
@@ -127,7 +280,13 @@ export default function WidgetPage() {
     if (!token || !extInstalled) return;
     setConnectError("");
     setConnectPhase("connecting");
-    window.dispatchEvent(new CustomEvent("lumina:connect-gemini", { detail: { token } }));
+    // Pass the backend URL so the extension posts the Gemini cookies to the same
+    // bridge this widget uses (local or production).
+    window.dispatchEvent(
+      new CustomEvent("lumina:connect-gemini", {
+        detail: { token, backendUrl: API_BASE },
+      }),
+    );
   }
 
   function openLogin() {
@@ -136,7 +295,8 @@ export default function WidgetPage() {
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!token) return;
+      if (!token || !selectedAgentId) return;
+      const agentModel = myAgents.find((a) => a.id === selectedAgentId)?.model ?? "gemini-3-flash";
       const userMsg: WidgetMessage = { id: `u-${Date.now()}`, role: "user", content: text };
       const replyId = `a-${Date.now()}`;
       setMessages((m) => [...m, userMsg, { id: replyId, role: "assistant", content: "" }]);
@@ -144,7 +304,7 @@ export default function WidgetPage() {
 
       let full = "";
       try {
-        const res = await embedChatStream(token, embedKey, text);
+        const res = await chatStream(token, text, agentModel, selectedAgentId);
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -195,11 +355,11 @@ export default function WidgetPage() {
         setBusy(false);
       }
     },
-    [token, embedKey],
+    [token, selectedAgentId, myAgents],
   );
 
   const accent = appearance.accentColor ?? "#f97316";
-  const theme = appearance.theme ?? "dark";
+  const theme = getThemeParam() ?? appearance.theme ?? "dark";
 
   if (!embedKey) {
     return <CenterCard theme={theme}>Missing embed key.</CenterCard>;
@@ -261,6 +421,18 @@ export default function WidgetPage() {
     );
   }
 
+  // ready + connected but the user has no assigned agents: nothing to chat with.
+  if (agentsLoaded && myAgents.length === 0) {
+    return (
+      <CenterCard theme={theme}>
+        <p className="text-sm font-medium">No agents are assigned to you yet.</p>
+        <p className="mt-1 text-xs opacity-70">
+          Contact your administrator to get access to an assistant.
+        </p>
+      </CenterCard>
+    );
+  }
+
   // ready + connected: the chat
   return (
     <div className="flex h-screen flex-col">
@@ -274,6 +446,9 @@ export default function WidgetPage() {
           busy={busy}
           suggestions={suggestions}
           onSend={handleSend}
+          agents={myAgents}
+          selectedAgentId={selectedAgentId}
+          onNewChat={handleNewChat}
         />
       </div>
     </div>

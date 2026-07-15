@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, MessageCircleQuestion, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, MessageCircleQuestion } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/MarkdownMessage";
-import type { Suggestion } from "@/types/chat";
+import { WidgetAgentMenu } from "@/components/widget/WidgetAgentMenu";
+import type { Suggestion, UserAgent } from "@/types/chat";
 
 export interface WidgetMessage {
   id: string;
@@ -18,6 +19,9 @@ interface WidgetChatProps {
   busy: boolean;
   suggestions?: Suggestion[];
   onSend: (text: string) => void;
+  agents?: UserAgent[];
+  selectedAgentId?: string | null;
+  onNewChat?: (agentId: string) => void;
 }
 
 export function WidgetChat({
@@ -29,10 +33,14 @@ export function WidgetChat({
   busy,
   suggestions = [],
   onSend,
+  agents = [],
+  selectedAgentId = null,
+  onNewChat,
 }: WidgetChatProps) {
   const [value, setValue] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const light = theme === "light";
+  const activeAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -57,16 +65,53 @@ export function WidgetChat({
 
   return (
     <div className={light ? "flex h-full flex-col bg-white text-zinc-900" : "flex h-full flex-col bg-zinc-950 text-zinc-100"}>
-      {/* Header */}
-      <div
-        className="flex items-center gap-2.5 px-4 py-3 text-white"
-        style={{ background: accentColor }}
-      >
-        <div className="flex size-7 items-center justify-center rounded-lg bg-white/20">
-          <Sparkles className="size-4" />
+      {/* Header — no colored bar. The host (dashboard modal) shows the main
+          "PNE LC AI Assistant" title; here we show the active agent just under
+          it, with the New-chat dropdown floating in the corner. */}
+      {(activeAgent || (onNewChat && agents.length > 0)) && (
+        <div
+          className={
+            light
+              ? "flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2.5"
+              : "flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5"
+          }
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            {activeAgent ? (
+              <>
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: `${accentColor}1f`, color: accentColor }}
+                >
+                  <Bot className="size-3.5" />
+                </span>
+                <span
+                  className={
+                    light
+                      ? "truncate text-sm font-semibold text-zinc-900"
+                      : "truncate text-sm font-semibold text-zinc-100"
+                  }
+                >
+                  {activeAgent.name}
+                </span>
+              </>
+            ) : (
+              <span className={light ? "text-sm text-zinc-500" : "text-sm text-zinc-400"}>
+                {title}
+              </span>
+            )}
+          </div>
+          {onNewChat && agents.length > 0 && (
+            <WidgetAgentMenu
+              agents={agents}
+              selectedAgentId={selectedAgentId}
+              accentColor={accentColor}
+              light={light}
+              onNewChat={onNewChat}
+            />
+          )}
         </div>
-        <span className="text-sm font-semibold">{title}</span>
-      </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
@@ -111,17 +156,26 @@ export function WidgetChat({
                 <MarkdownMessage content={m.content} />
               ) : m.role === "assistant" && !m.content && busy ? (
                 <span
-                  className="flex items-center gap-1 py-0.5"
+                  className="flex items-center gap-2 py-0.5"
                   role="status"
                   aria-label="Assistant is typing"
                 >
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="size-1.5 animate-bounce rounded-full"
-                      style={{ background: accentColor, animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
+                  <span className="flex items-center gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="size-2 animate-bounce rounded-full"
+                        style={{
+                          background: accentColor,
+                          animationDelay: `${i * 0.18}s`,
+                          animationDuration: "0.9s",
+                        }}
+                      />
+                    ))}
+                  </span>
+                  <span className={light ? "text-xs text-zinc-400" : "text-xs text-zinc-500"}>
+                    Thinking…
+                  </span>
                 </span>
               ) : (
                 m.content
