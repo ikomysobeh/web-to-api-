@@ -1,4 +1,5 @@
 # vector.py
+import asyncio
 import httpx
 import logging
 import os
@@ -6,6 +7,7 @@ import re
 import uuid
 from typing import List, Optional
 from database import get_connection
+from cache import make_key, cache_get_json, cache_set_json
 
 logger = logging.getLogger("vector")
 
@@ -13,6 +15,21 @@ logger = logging.getLogger("vector")
 OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "nomic-embed-text")
 EMBED_DIMENSIONS = 768   # nomic-embed-text produces 768 dims — matches document_chunks.embedding vector(768)
+
+# ─── Ollama concurrency guard ────────────────────────────────────────────────
+# Ollama processes embeddings SEQUENTIALLY. If many requests hit it at once,
+# latency explodes (2s → 45s+ with just 5 concurrent users). This semaphore
+# caps how many embedding calls run at the same time so Ollama never floods.
+#
+# Set OLLAMA_MAX_CONCURRENCY to match your CPU count (2 on a KVM 2). It MUST be
+# paired with OLLAMA_NUM_PARALLEL on the Ollama server side (see Task 3).
+OLLAMA_MAX_CONCURRENCY = int(os.getenv("OLLAMA_MAX_CONCURRENCY", "2"))
+_embed_semaphore = asyncio.Semaphore(OLLAMA_MAX_CONCURRENCY)
+
+# How long a cached embedding stays valid. The same text always produces the
+# same vector for a given model, so this can be long. 24h is plenty and keeps
+# the cache from growing forever (LRU eviction handles the rest).
+EMBED_CACHE_TTL = int(os.getenv("EMBED_CACHE_TTL", "86400"))
 
 CHUNK_SIZE = 1500      # characters per chunk (~375 tokens at 4 chars/token)
 CHUNK_OVERLAP = 150    # overlap between chunks
@@ -60,18 +77,41 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
 # ─── Embedding via Ollama ────────────────────────────────────────────────────
 
 async def embed_text(text: str) -> Optional[List[float]]:
-    """Call local Ollama and return a 768-dimension vector. Returns None if call fails."""
+    """
+    Return a 768-dimension vector for `text`. Returns None if the call fails.
+
+    Order of operations:
+      1. Check the cache — identical text was embedded before → reuse the vector,
+         skip Ollama entirely (this is the whole point: fewer Ollama calls).
+      2. On a miss, call Ollama (guarded by the semaphore so at most
+         OLLAMA_MAX_CONCURRENCY run at once), then store the result in the cache.
+
+    The cache only ever matches the EXACT same text for the EXACT same model, so
+    it can never return a wrong vector — 100% safe.
+    """
+    # 1. Cache lookup (keyed on model + text so changing the model invalidates it)
+    cache_key = make_key("embed", OLLAMA_MODEL, text)
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return cached
+
+    # 2. Cache miss → call Ollama under the concurrency guard
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f"{OLLAMA_URL}/api/embeddings",
-                json={"model": OLLAMA_MODEL, "prompt": text}
-            )
-            resp.raise_for_status()
-            return resp.json()["embedding"]
+        async with _embed_semaphore:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    f"{OLLAMA_URL}/api/embeddings",
+                    json={"model": OLLAMA_MODEL, "prompt": text}
+                )
+                resp.raise_for_status()
+                embedding = resp.json()["embedding"]
     except Exception:
         logger.exception(f"Ollama embed_text failed for: {text[:80]}...")
         return None
+
+    # 3. Store for next time (silent no-op if Redis is unavailable)
+    cache_set_json(cache_key, embedding, EMBED_CACHE_TTL)
+    return embedding
 
 
 async def embed_query(text: str) -> Optional[List[float]]:
