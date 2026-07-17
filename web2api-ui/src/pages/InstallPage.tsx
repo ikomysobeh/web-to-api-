@@ -17,6 +17,7 @@ import {
 // latest.json all live together in this folder (from web2api-ui/public/ext/).
 const EXT_BASE = 'https://ai.lcportal.cloud/ext'
 const WINDOWS_INSTALLER = `${EXT_BASE}/PNE-LC-AI-Setup.exe`
+const MAC_INSTALLER = `${EXT_BASE}/PNE-LC-AI-Setup.pkg`
 
 type OS = 'windows' | 'mac'
 
@@ -188,34 +189,72 @@ export default function InstallPage() {
               </Step>
             </ol>
           ) : (
-            // macOS — installer not published yet
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-white/5 text-orange-300">
-                <Command className="size-6" />
-              </div>
-              <p className="text-sm font-medium text-zinc-200">macOS installer coming soon</p>
-              <p className="max-w-sm text-xs text-zinc-500">
-                The macOS package (<span className="font-mono">.pkg</span>) is being prepared.
-                For now, please install on Windows, or contact your PNE LC AI administrator for
-                the macOS installer.
-              </p>
-            </div>
+            <ol className="flex flex-col gap-6">
+              <Step n={1} title="Download and open the installer">
+                <a
+                  href={MAC_INSTALLER}
+                  download
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-orange-500 hover:to-amber-500 active:scale-[0.99]"
+                >
+                  <Download className="size-4" /> Download PNE-LC-AI-Setup.pkg
+                </a>
+                <p className="mt-2 text-xs text-zinc-500">
+                  No administrator rights needed. If macOS says it “cannot be opened because it
+                  is from an unidentified developer,” <span className="text-zinc-300">right-click
+                  the file → Open</span>, then confirm (it’s our own installer, just not yet
+                  Apple-notarized).
+                </p>
+              </Step>
+
+              <Step n={2} title="Turn on Developer mode in Chrome">
+                <p className="text-sm text-zinc-400">
+                  The installer opens the extension folder for you. In Chrome, open the
+                  extensions page and switch{' '}
+                  <span className="font-medium text-zinc-200">Developer mode</span> ON
+                  (top-right) — leave it on.
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">Paste into Chrome’s address bar:</p>
+                <div className="mt-2">
+                  <CopyBox text="chrome://extensions" />
+                </div>
+              </Step>
+
+              <Step n={3} title="Click “Load unpacked” and pick the folder">
+                <p className="text-sm text-zinc-400">
+                  Click <span className="font-medium text-zinc-200">Load unpacked</span>{' '}
+                  (top-left), then choose the{' '}
+                  <span className="font-medium text-zinc-200">extension</span> folder that opened.
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  That folder is at{' '}
+                  <span className="font-mono text-zinc-400">
+                    ~/Library/Application Support/PNE LC AI/extension
+                  </span>
+                  .
+                </p>
+              </Step>
+
+              <Step n={4} title="Done — you’re connected">
+                <p className="text-sm text-zinc-400">
+                  “PNE LC AI” now appears in your extensions. Open the app, sign in, and click
+                  the extension to connect Gemini.
+                </p>
+              </Step>
+            </ol>
           )}
         </div>
 
         {/* Reassurance line */}
-        {os === 'windows' && (
-          <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] px-4 py-3">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-400" />
-            <p className="text-xs leading-relaxed text-emerald-200/80">
-              After setup, the extension updates itself automatically in the background — you
-              never need to reinstall or repeat these steps.
-            </p>
-          </div>
-        )}
+        <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] px-4 py-3">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+          <p className="text-xs leading-relaxed text-emerald-200/80">
+            After setup, the extension updates itself automatically in the background — you
+            never need to reinstall or repeat these steps.
+          </p>
+        </div>
 
         {/* Troubleshooting (collapsible) */}
-        {os === 'windows' && (
+        {(
           <div className="mt-4 w-full">
             <button
               onClick={() => setShowTrouble((v) => !v)}
