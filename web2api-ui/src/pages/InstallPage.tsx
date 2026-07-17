@@ -7,13 +7,16 @@ import {
   Download,
   Loader2,
   Monitor,
+  PuzzleIcon,
   RefreshCw,
   ShieldCheck,
+  ToggleRight,
 } from 'lucide-react'
 
-// Where the extension files are hosted. The install scripts, the .crx and
-// update.xml all live together in this folder (upload dist-package/* here).
+// Where the extension files are hosted. The installer, the release zip and
+// latest.json all live together in this folder (from web2api-ui/public/ext/).
 const EXT_BASE = 'https://ai.lcportal.cloud/ext'
+const WINDOWS_INSTALLER = `${EXT_BASE}/PNE-LC-AI-Setup.exe`
 
 type OS = 'windows' | 'mac'
 
@@ -25,12 +28,12 @@ function detectOS(): OS {
   return 'windows'
 }
 
-/** A command line with a copy-to-clipboard button. */
-function CommandBox({ command }: { command: string }) {
+/** A short piece of text (like a URL) with a copy-to-clipboard button. */
+function CopyBox({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
-      await navigator.clipboard.writeText(command)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
     } catch {
@@ -40,11 +43,11 @@ function CommandBox({ command }: { command: string }) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
       <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-zinc-200">
-        {command}
+        {text}
       </code>
       <button
         onClick={copy}
-        aria-label="Copy command"
+        aria-label="Copy"
         className="flex size-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100"
       >
         {copied ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
@@ -71,7 +74,7 @@ function Step({ n, title, children }: { n: number; title: string; children?: Rea
 export default function InstallPage() {
   const [os, setOs] = useState<OS>('windows')
   const [ready, setReady] = useState(false)
-  const [showUninstall, setShowUninstall] = useState(false)
+  const [showTrouble, setShowTrouble] = useState(false)
 
   useEffect(() => {
     setOs(detectOS())
@@ -86,11 +89,6 @@ export default function InstallPage() {
     )
   }
 
-  const winInstall = `${EXT_BASE}/install-windows.ps1`
-  const winUninstall = `${EXT_BASE}/uninstall-windows.ps1`
-  const macInstall = `${EXT_BASE}/install-mac.command`
-  const macUninstall = `${EXT_BASE}/uninstall-mac.command`
-
   return (
     <div className="app-bg relative min-h-screen w-full overflow-x-hidden">
       {/* Ambient glow */}
@@ -103,8 +101,8 @@ export default function InstallPage() {
           Install the PNE LC AI extension
         </h1>
         <p className="mt-2 max-w-md text-center text-sm text-zinc-400">
-          Connects your Gemini account to PNE LC AI. Takes about a minute — pick your system
-          below and follow the steps.
+          Connects your Gemini account to PNE LC AI. A quick one-time setup — after that it
+          keeps itself up to date automatically.
         </p>
 
         {/* OS switch */}
@@ -135,113 +133,120 @@ export default function InstallPage() {
         <div className="mt-6 w-full rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-xl sm:p-8">
           {os === 'windows' ? (
             <ol className="flex flex-col gap-6">
-              <Step n={1} title="Download the installer script">
+              <Step n={1} title="Download and run the installer">
                 <a
-                  href={winInstall}
+                  href={WINDOWS_INSTALLER}
                   download
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-orange-500 hover:to-amber-500 active:scale-[0.99]"
                 >
-                  <Download className="size-4" /> Download install-windows.ps1
+                  <Download className="size-4" /> Download PNE-LC-AI-Setup.exe
                 </a>
-              </Step>
-              <Step n={2} title="Open PowerShell in your Downloads folder and run:">
-                <CommandBox command="powershell -ExecutionPolicy Bypass -File .\install-windows.ps1" />
                 <p className="mt-2 text-xs text-zinc-500">
-                  No administrator rights needed. Tip: in the Downloads folder, type{' '}
-                  <span className="font-mono text-zinc-400">powershell</span> in the address
-                  bar and press Enter.
+                  No administrator rights needed. If Windows shows a “Windows protected your
+                  PC” warning, click <span className="text-zinc-300">More info → Run anyway</span>{' '}
+                  (it’s our own installer, just not yet code-signed).
                 </p>
               </Step>
-              <Step n={3} title="Restart Chrome to finish">
+
+              <Step n={2} title="Turn on Developer mode in Chrome">
                 <p className="text-sm text-zinc-400">
-                  Fully quit Chrome and reopen it (or paste{' '}
-                  <span className="font-mono text-zinc-300">chrome://restart</span> into the
-                  address bar). The extension installs itself within a minute.
+                  The installer opens Chrome’s extensions page for you. In the{' '}
+                  <span className="font-medium text-zinc-200">top-right corner</span>, switch{' '}
+                  <span className="font-medium text-zinc-200">Developer mode</span> ON and
+                  leave it on.
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  If the page didn’t open, paste this into Chrome’s address bar:
+                </p>
+                <div className="mt-2">
+                  <CopyBox text="chrome://extensions" />
+                </div>
+              </Step>
+
+              <Step n={3} title="Click “Load unpacked” and pick the folder">
+                <p className="text-sm text-zinc-400">
+                  Click <span className="font-medium text-zinc-200">Load unpacked</span>{' '}
+                  (top-left), then choose the{' '}
+                  <span className="font-medium text-zinc-200">extension</span> folder that the
+                  installer opened for you, and click{' '}
+                  <span className="font-medium text-zinc-200">Select Folder</span>.
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  That folder is at{' '}
+                  <span className="font-mono text-zinc-400">
+                    %LOCALAPPDATA%\PNE LC AI\extension
+                  </span>
+                  .
+                </p>
+              </Step>
+
+              <Step n={4} title="Done — you’re connected">
+                <p className="text-sm text-zinc-400">
+                  “PNE LC AI” now appears in your extensions. Open the app, sign in, and click
+                  the extension to connect Gemini. Pin it to your toolbar if you like.
                 </p>
               </Step>
             </ol>
           ) : (
-            <ol className="flex flex-col gap-6">
-              <Step n={1} title="Download the installer">
-                <a
-                  href={macInstall}
-                  download
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-orange-500 hover:to-amber-500 active:scale-[0.99]"
-                >
-                  <Download className="size-4" /> Download install-mac.command
-                </a>
-              </Step>
-              <Step n={2} title="Open Terminal in your Downloads folder and run:">
-                <CommandBox command="chmod +x install-mac.command && ./install-mac.command" />
-                <p className="mt-2 text-xs text-zinc-500">
-                  No administrator rights needed.
-                </p>
-              </Step>
-              <Step n={3} title="Restart Chrome to finish">
-                <p className="text-sm text-zinc-400">
-                  Quit Chrome with <span className="font-mono text-zinc-300">Cmd+Q</span> and
-                  reopen it. The extension installs itself within a minute.
-                </p>
-              </Step>
-            </ol>
-          )}
-        </div>
-
-        {/* Reassurance line */}
-        <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] px-4 py-3">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-400" />
-          <p className="text-xs leading-relaxed text-emerald-200/80">
-            After it installs, the extension keeps itself up to date automatically — you
-            never have to reinstall.
-          </p>
-        </div>
-
-        {/* Uninstall (collapsible) */}
-        <div className="mt-4 w-full">
-          <button
-            onClick={() => setShowUninstall((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
-          >
-            <ChevronDown
-              className={`size-3.5 transition-transform ${showUninstall ? 'rotate-180' : ''}`}
-            />
-            Need to remove it?
-          </button>
-          {showUninstall && (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <p className="mb-3 text-xs text-zinc-400">
-                Because the extension is managed, it can’t be removed from Chrome’s menu —
-                run the uninstaller instead, then restart Chrome.
+            // macOS — installer not published yet
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-white/5 text-orange-300">
+                <Command className="size-6" />
+              </div>
+              <p className="text-sm font-medium text-zinc-200">macOS installer coming soon</p>
+              <p className="max-w-sm text-xs text-zinc-500">
+                The macOS package (<span className="font-mono">.pkg</span>) is being prepared.
+                For now, please install on Windows, or contact your PNE LC AI administrator for
+                the macOS installer.
               </p>
-              {os === 'windows' ? (
-                <>
-                  <a
-                    href={winUninstall}
-                    download
-                    className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-orange-300 hover:text-orange-200"
-                  >
-                    <Download className="size-3.5" /> Download uninstall-windows.ps1
-                  </a>
-                  <CommandBox command="powershell -ExecutionPolicy Bypass -File .\uninstall-windows.ps1" />
-                </>
-              ) : (
-                <>
-                  <a
-                    href={macUninstall}
-                    download
-                    className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-orange-300 hover:text-orange-200"
-                  >
-                    <Download className="size-3.5" /> Download uninstall-mac.command
-                  </a>
-                  <CommandBox command="chmod +x uninstall-mac.command && ./uninstall-mac.command" />
-                </>
-              )}
             </div>
           )}
         </div>
 
+        {/* Reassurance line */}
+        {os === 'windows' && (
+          <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] px-4 py-3">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+            <p className="text-xs leading-relaxed text-emerald-200/80">
+              After setup, the extension updates itself automatically in the background — you
+              never need to reinstall or repeat these steps.
+            </p>
+          </div>
+        )}
+
+        {/* Troubleshooting (collapsible) */}
+        {os === 'windows' && (
+          <div className="mt-4 w-full">
+            <button
+              onClick={() => setShowTrouble((v) => !v)}
+              className="flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+            >
+              <ChevronDown
+                className={`size-3.5 transition-transform ${showTrouble ? 'rotate-180' : ''}`}
+              />
+              The extension disappeared after a Chrome update?
+            </button>
+            {showTrouble && (
+              <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-xs text-zinc-400">
+                <p className="flex items-start gap-2">
+                  <PuzzleIcon className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
+                  Occasionally, after a big Chrome update, Chrome turns off Developer-mode
+                  extensions.
+                </p>
+                <p className="flex items-start gap-2">
+                  <ToggleRight className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
+                  Just open <span className="font-mono text-zinc-300">chrome://extensions</span>,
+                  make sure <span className="text-zinc-300">Developer mode</span> is ON, and
+                  toggle <span className="text-zinc-300">PNE LC AI</span> back on. No reinstall
+                  needed.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <p className="mt-8 flex items-center gap-1.5 text-xs text-zinc-600">
-          <RefreshCw className="size-3" /> Chrome only — Windows &amp; macOS
+          <RefreshCw className="size-3" /> Chrome only · auto-updating
         </p>
       </div>
     </div>
